@@ -1,14 +1,15 @@
 XenkoCommunity.ImGuiDebug
 =====
 
-Barbone implementation of ImGui and a couple of debug tools for Xenko
+Bare-bone implementation of ImGui and a couple of debug tools for Xenko
+
+![](https://lh4.googleusercontent.com/hsfcdXReO4bn3cpFqPz4X42Idwpsc5E4bnisDlT3ommescFboerUvj6doqfbHHPRsMD6idPuGVN-zNQrBBNy=w1727-h1018)
 
 ### How to:
-Add this repo as a submodule of your game's repo.
-Add a project reference pointing to this project inside your game's .csproj.
-Add a reference to ImGui.NET's nuget package to your game's project.
-Copy the 'Effects' directory into your game's project (if someone know of a better way PRs are welcome).
-Start ImGui within your game's BeginRun():
+* Add this repo as a submodule of your game's repo.
+* Add a project reference pointing to this project inside your game's .csproj.
+* Reference ImGui.NET's nuget package in your game's project.
+* Start ImGui within your game's BeginRun():
 ```cs
 using XenkoCommunity.ImGuiDebug;
 protected override void BeginRun()
@@ -80,5 +81,6 @@ public class YourInterface : XenkoCommunity.ImGuiDebug.BaseWindow
 
 Credits
 -------
-https://github.com/ocornut/imgui
-https://github.com/mellinoe/ImGui.NET
+[Dear ImGui](https://github.com/ocornut/imgui)
+
+[ImGui.NET](https://github.com/mellinoe/ImGui.NET)
