@@ -215,9 +215,9 @@ namespace XenkoCommunity.ImGuiDebug
                 }
                 return false;
             }
-            
+
+            TypeCache typeData = GetTypeData( value.GetType() );
             bool valueChanged = false;
-            // Complex object: present button to swap inspect target to this object ?
             if( ValueDrawingHandlers.TryGetValue( value.GetType(), out var handler ) )
             {
                 valueChanged = handler( name, ref value );
@@ -225,7 +225,7 @@ namespace XenkoCommunity.ImGuiDebug
             }
             
             bool recursable = Type.GetTypeCode( value.GetType() ) == TypeCode.Object;
-            recursable = recursable && ( GetTypeData( value.GetType() ).FilteredMembers.Length > 0 || ReadableIEnumerable(value) );
+            recursable = recursable && ( typeData.FilteredMembers.Length > 0 || ReadableIEnumerable(value) );
             
             bool recurse = recursable && _openedId.Contains( memberInHierarchyId );
             
@@ -249,6 +249,7 @@ namespace XenkoCommunity.ImGuiDebug
                 
                 NextColumn();
                 
+                // Complex object: present button to swap inspect target to this object ?
                 if( Type.GetTypeCode( value.GetType() ) == TypeCode.Object && value.GetType().IsClass )
                 {
                     if( Button( value.ToString() ) )
@@ -274,6 +275,40 @@ namespace XenkoCommunity.ImGuiDebug
                         case ushort v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (ushort)c; } return valueChanged; }
                         case byte v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (byte)c; } return valueChanged; }
                         case sbyte v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (sbyte)c; } return valueChanged; }
+                    }
+                }
+                if( typeData.asEnum != null )
+                {
+                    ( bool flags, Array values ) = typeData.asEnum.Value;
+                    using( UCombo( "", value.ToString(), out bool open ) )
+                    {
+                        if( open )
+                        {
+                            foreach( object o in values )
+                            {
+                                ulong fieldValue = GetEnumBits( value );
+                                ulong compValue = GetEnumBits( o );
+                                bool selected;
+                                if( flags )
+                                    selected = ( fieldValue & compValue ) == compValue;
+                                else
+                                    selected = fieldValue == compValue;
+                                
+                                if( Selectable( o.ToString(), selected ) )
+                                {
+                                    if( flags )
+                                    {
+                                        if( selected ) // unselect this value
+                                            compValue = fieldValue & ~compValue;
+                                        else // select new value
+                                            compValue = fieldValue | compValue;
+                                    }
+                                    value = GetEnumValueFromBits( compValue, value.GetType() );
+                                    valueChanged = true;
+                                }
+                            }
+                        }
+                        return valueChanged;
                     }
                 }
                 
@@ -342,7 +377,8 @@ namespace XenkoCommunity.ImGuiDebug
                     {
                         var key = keys.Current;
                         var value = values.Current;
-                        bool changed = DrawValue( key?.ToString() ?? "null", ref value, false, hashcodeSource );
+                        string keyString = key?.ToString() ?? "null";
+                        bool changed = DrawValue( keyString, ref value, false, hashcodeSource );
                         if( changed )
                         {
                             changeKey = true;
@@ -351,7 +387,7 @@ namespace XenkoCommunity.ImGuiDebug
                         }
                         
                         SameLine();
-                        PushID(key.ToString());
+                        PushID( keyString );
                         if( Button( "x" ) )
                         {
                             removeKey = true;
@@ -488,6 +524,40 @@ namespace XenkoCommunity.ImGuiDebug
             return false;
         }
 
+        static ulong GetEnumBits( object enumValue )
+        {
+            var valueType = enumValue.GetType();
+            if( valueType.IsEnum )
+                valueType = Enum.GetUnderlyingType( valueType );
+            
+            if( valueType == typeof(int) ) return (ulong)(int)enumValue;
+            if( valueType == typeof(uint) ) return (ulong)(uint)enumValue;
+            if( valueType == typeof(long) ) return (ulong)(long)enumValue;
+            if( valueType == typeof(ulong) ) return (ulong)enumValue;
+            if( valueType == typeof(short) ) return (ulong)(short)enumValue;
+            if( valueType == typeof(ushort) ) return (ulong)(ushort)enumValue;
+            if( valueType == typeof(byte) ) return (ulong)(byte)enumValue;
+            if( valueType == typeof(sbyte) ) return (ulong)(sbyte)enumValue;
+            throw new InvalidOperationException();
+        }
+
+        static object GetEnumValueFromBits( ulong bits, Type enumType )
+        {
+            if( enumType.IsEnum )
+            {
+                var valueType = Enum.GetUnderlyingType( enumType );
+                if( valueType == typeof(int) ) return (int)bits;
+                if( valueType == typeof(uint) ) return (uint)bits;
+                if( valueType == typeof(long) ) return (long)bits;
+                if( valueType == typeof(ulong) ) return bits;
+                if( valueType == typeof(short) ) return (short)bits;
+                if( valueType == typeof(ushort) ) return (ushort)bits;
+                if( valueType == typeof(byte) ) return (byte)bits;
+                if( valueType == typeof(sbyte) ) return (sbyte)bits;
+            }
+            throw new InvalidOperationException();
+        }
+
         [ Flags ]
         public enum Filter : uint
         {
@@ -505,6 +575,7 @@ namespace XenkoCommunity.ImGuiDebug
             public readonly MemberInfo[] FilteredMembers;
             public readonly (Type key, Type value, MethodInfo getKey, MethodInfo getValue)? AsDictionary;
             public readonly Type AsList;
+            public readonly ( bool flags, Array values )? asEnum;
             readonly Type _type;
             readonly Filter _filter;
 
@@ -512,7 +583,7 @@ namespace XenkoCommunity.ImGuiDebug
             {
                 _type = t;
                 _filter = filter;
-                FilteredMembers = GetAllMembers( t ).Where( m => PassesFilter( t, m ) ).ToArray();
+                FilteredMembers = GetAllMembers( _type ).Where( m => PassesFilter( _type, m ) ).ToArray();
                 
                 var generics = GetGenericsFromBaseType( _type, typeof(IDictionary<,>) );
                 if( generics == null && typeof(IDictionary).IsAssignableFrom( _type ) )
@@ -535,6 +606,11 @@ namespace XenkoCommunity.ImGuiDebug
                     AsList = typeof(object);
                 else if( generics != null )
                     AsList = generics[ 0 ];
+
+                if( _type.IsEnum )
+                {
+                    asEnum = ( _type.IsDefined(typeof(FlagsAttribute) ), Enum.GetValues( _type ) );
+                }
             }
             
             static Type[] GetGenericsFromBaseType( Type impl, Type type )
