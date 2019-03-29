@@ -185,12 +185,11 @@ namespace XenkoCommunity.ImGuiDebug
                         var samples = data.Value.Displayed;
                         if( CollapsingHeader( thread.Name ) == false )
                             continue;
-                        // Child() to properly align GetCursorPos
+                        // Child() to properly align content within
                         using( Child(size:new Vector2(0f, FrameHeight)) )
                         {
-                            var corner = GetCursorPos();
                             for( int i = 0; i < samples.Count; i++ )
-                                DrawSample( corner, MaxWidth(), samples[ i ], _cpuFrame.start, _cpuFrame.duration );
+                                DrawSample( default, MaxWidth(), samples[ i ], _cpuFrame.start, _cpuFrame.duration );
                         }
                     }
     
@@ -208,23 +207,21 @@ namespace XenkoCommunity.ImGuiDebug
                     // GPU
                     if( CollapsingHeader( _gpuSamples.Count != 0 ? "GPU" : "GPU (profiling is off)" ) )
                     {
-                        // Child() to properly align GetCursorPos
+                        // Child() to properly align content within
                         using( Child(size:new Vector2(0f, FrameHeight)) )
                         {
-                            var corner = GetCursorPos();
                             foreach( var data in _gpuSamples )
-                                DrawSample( corner, MaxWidth(), data, _gpuFrame.start, _gpuFrame.duration );
+                                DrawSample( default, MaxWidth(), data, _gpuFrame.start, _gpuFrame.duration );
                         }
                     }
                     // Xenko Systems
                     if( CollapsingHeader( _xenkoSamples.Count != 0 ? "Xenko Systems" : "Xenko Systems (profiling is off)" ) )
                     {
-                        // Child() to properly align GetCursorPos
+                        // Child() to properly align content within
                         using( Child(size:new Vector2(0f, FrameHeight)) )
                         {
-                            var corner = GetCursorPos();
                             foreach( var data in _xenkoSamples )
-                                DrawSample( corner, MaxWidth(), data, _xenkoFrame.start, _xenkoFrame.duration );
+                                DrawSample( default, MaxWidth(), data, _xenkoFrame.start, _xenkoFrame.duration );
                         }
                     }
                 }
