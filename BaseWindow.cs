@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace XenkoCommunity.ImGuiDebug
 {
     using Xenko.Core;
@@ -37,18 +35,18 @@ namespace XenkoCommunity.ImGuiDebug
 
         public override void Update( GameTime gameTime )
         {
-            // Allow for some leeway to avoid throwing if imgui
-            // as not been set or this runs before imgui is ready
+            // Allow for some leeway to avoid throwing
+            // if imgui as not been set yet
+            _imgui = _imgui ?? Services.GetService<ImGuiSystem>();
             if( _imgui is null )
+                return;
+            
+            // This component must run after imgui to
+            // avoid throwing and single frame lag
+            if( UpdateOrder <= _imgui.UpdateOrder )
             {
-                _imgui = Services.GetService<ImGuiSystem>();
-                if( _imgui is null )
-                    return;
-                if( UpdateOrder != _imgui.UpdateOrder + 1 )
-                {
-                    UpdateOrder = _imgui.UpdateOrder + 1;
-                    return;
-                }
+                UpdateOrder = _imgui.UpdateOrder + 1;
+                return;
             }
             
             if( WindowPos != null ) 
