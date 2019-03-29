@@ -11,6 +11,11 @@ namespace XenkoCommunity.ImGuiDebug
     
     public static class ImGuiExtension
     {
+        public static DisposableImGui<Empty> UCombo( string label, string previewValue, out bool open, ImGuiComboFlags flags = ImGuiComboFlags.None )
+        {
+            open = BeginCombo( label, previewValue, flags );
+            return new DisposableImGui<Empty>( true, DisposableTypes.Combo );
+        }
         public static DisposableImGui<Empty> Tooltip()
         {
             BeginTooltip();
@@ -37,8 +42,8 @@ namespace XenkoCommunity.ImGuiDebug
         {
             return new DisposableImGui<Empty>(BeginChild((uint)cln, size, border, flags), DisposableTypes.Child );
         }
-        public static DisposableImGui<Empty> MenuBar() => new DisposableImGui<Empty>(BeginMenuBar(), DisposableTypes.MenuBar );
-        public static DisposableImGui<Empty> Menu(string label, bool enabled = true) => new DisposableImGui<Empty>(BeginMenu(label, enabled), DisposableTypes.Menu );
+        public static DisposableImGui<Empty> MenuBar(out bool open) => new DisposableImGui<Empty>(open = BeginMenuBar(), DisposableTypes.MenuBar );
+        public static DisposableImGui<Empty> Menu(string label, out bool open, bool enabled = true) => new DisposableImGui<Empty>(open = BeginMenu(label, enabled), DisposableTypes.Menu );
         
         
         public struct DisposableImGui<T> : IDisposable
@@ -66,6 +71,7 @@ namespace XenkoCommunity.ImGuiDebug
                     case DisposableTypes.Window: End(); return;
                     case DisposableTypes.Tooltip: EndTooltip(); return;
                     case DisposableTypes.Columns: Columns(1); return;
+                    case DisposableTypes.Combo: EndCombo(); return;
                     case DisposableTypes.Indentation:
                         if( _parameters is float f )
                             Unindent(f);
@@ -85,7 +91,8 @@ namespace XenkoCommunity.ImGuiDebug
             Window,
             Indentation,
             Tooltip,
-            Columns
+            Columns,
+            Combo
         }
         
         public static void PlotLines
