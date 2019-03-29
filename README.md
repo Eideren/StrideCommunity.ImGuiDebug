@@ -3,7 +3,7 @@ XenkoCommunity.ImGuiDebug
 
 Bare-bone implementation of ImGui and a couple of debug tools for Xenko
 
-![](https://lh4.googleusercontent.com/hsfcdXReO4bn3cpFqPz4X42Idwpsc5E4bnisDlT3ommescFboerUvj6doqfbHHPRsMD6idPuGVN-zNQrBBNy=w1727-h1018)
+![](https://user-images.githubusercontent.com/5742236/55237373-563a1400-5232-11e9-8c24-beeaf127c0ac.png)
 
 ### How to:
 * Add this repo as a submodule of your game's repo.
