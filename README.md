@@ -51,14 +51,16 @@ public class YourInterface : XenkoCommunity.ImGuiDebug.BaseWindow
         if( collapsed )
             return;
 
-        using( MenuBar() )
+        if( BeginMenuBar() )
         {
-            using( Menu( "File" ) )
+            if( BeginMenu( "File" ) )
             {
                 if( MenuItem( "Open..", "Ctrl+O" ) ) { /* Do stuff */ }
                 if( MenuItem( "Save", "Ctrl+S" ) ) { /* Do stuff */ }
                 if( MenuItem( "Close", "Ctrl+W" ) ) { my_tool_active = false; }
+                EndMenu();
             }
+            EndMenuBar();
         }
 
         // Edit a color (stored as ~4 floats)
