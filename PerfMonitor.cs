@@ -96,8 +96,15 @@ namespace XenkoCommunity.ImGuiDebug
         {
             if( collapsed )
                 return;
-            
-            Checkbox( "Pause", ref _pauseEval );
+            using( UColumns( 2 ) )
+            {
+                Checkbox( "Pause", ref _pauseEval );
+                NextColumn();
+                int sampleSize = _graph.Length;
+                InputInt( "Sample Size", ref sampleSize );
+                if( sampleSize != _graph.Length )
+                    SetGraphSize( sampleSize );
+            }
             
             { // Draw and update frame-time graph
                 float min = float.MaxValue, max = float.MinValue;
@@ -366,6 +373,38 @@ namespace XenkoCommunity.ImGuiDebug
                 _graph[ i ] = _graph[ i + 1 ];
             // Push latest onto our plot
             _graph[ _graph.Length - 1 ] = newPoint;
+        }
+
+        public void SetGraphSize( int newSize, bool force = false )
+        {
+            if( force == false )
+                newSize = newSize < 10 ? 10 : newSize > 2048 ? 2048 : newSize;
+            int delta = newSize - _graph.Length;
+            if( delta == 0 )
+                return;
+            
+            var newGraph = new GraphPoint[ newSize ];
+            if( delta > 0 )
+            {
+                int offset = + delta;
+                for( int i = 0; i < _graph.Length; i++ )
+                    newGraph[ i + offset ] = _graph[ i ];
+                // fill padded data with last graph data
+                for( int i = 0; i < offset; i++ )
+                    newGraph[ i ] = _graph[ 0 ];
+            }
+            else
+            {
+                // delta is negative, newGraph is smaller than _graph
+                int offset = - delta;
+                for( int i = 0; i < newGraph.Length; i++ )
+                    newGraph[ i ] = _graph[ i + offset ];
+            }
+
+            _graph = newGraph;
+            _graphAggregated = default;
+            for( int i = 0; i < _graph.Length; i++ )
+                _graphAggregated += _graph[ i ];
         }
 
         protected override void OnDestroy()
