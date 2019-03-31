@@ -47,6 +47,8 @@ namespace XenkoCommunity.ImGuiDebug
                                                            ImGuiWindowFlags.NoSavedSettings |
                                                            ImGuiWindowFlags.NoFocusOnAppearing;
         protected override Vector2? WindowPos => new Vector2( 1f, 1f );
+        protected override Vector2? WindowSize => _windowSize;
+        Vector2? _windowSize = new Vector2( 420f, 240f );
         
         
         
@@ -233,6 +235,9 @@ namespace XenkoCommunity.ImGuiDebug
                     }
                 }
             }
+            
+            // Leave it as dynamic after first set
+            _windowSize = null;
         }
 
 

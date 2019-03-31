@@ -18,6 +18,7 @@ namespace XenkoCommunity.ImGuiDebug
         protected uint Id;
         protected virtual ImGuiWindowFlags WindowFlags => ImGuiWindowFlags.None;
         protected virtual Vector2? WindowPos => null;
+        protected virtual Vector2? WindowSize => null;
         string _uniqueName;
         ImGuiSystem _imgui;
 
@@ -51,6 +52,8 @@ namespace XenkoCommunity.ImGuiDebug
             
             if( WindowPos != null ) 
                 ImGui.SetNextWindowPos( WindowPos.Value );
+            if( WindowSize != null )
+                ImGui.SetNextWindowSize( WindowSize.Value );
             using( Window( _uniqueName, ref Open, out bool collapsed, WindowFlags ) )
             {
                 OnDraw( collapsed );
