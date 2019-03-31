@@ -196,12 +196,12 @@ namespace XenkoCommunity.ImGuiDebug
             return hasChanged && target.GetType().IsValueType;
         }
         
-        bool DrawValue(string name, ref object value, bool readOnly, int hashcodeSource)
+        bool DrawValue(string constantName, ref object value, bool readOnly, int hashcodeSource)
         {
             // Deterministic way to provide a hashcode in a hierarchic/recursive manner
             // The hashcode created here, properly create one specific code for this object at this place in the hierarchy
             // of course hashcodes still aren't unique but this should work well enough for now
-            int memberInHierarchyId = (hashcodeSource, name).GetHashCode();
+            int memberInHierarchyId = (hashcodeSource, constantName).GetHashCode();
             using( ID( memberInHierarchyId ) )
             {
                 if( value == null )
@@ -209,7 +209,7 @@ namespace XenkoCommunity.ImGuiDebug
                     Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
                     using( UColumns( 2 ) )
                     {
-                        TextUnformatted( name );
+                        TextUnformatted( constantName );
                         NextColumn();
                         TextUnformatted( "null" );
                     }
@@ -220,7 +220,7 @@ namespace XenkoCommunity.ImGuiDebug
                 bool valueChanged = false;
                 if( ValueDrawingHandlers.TryGetValue( value.GetType(), out var handler ) )
                 {
-                    valueChanged = handler( name, ref value );
+                    valueChanged = handler( constantName, ref value );
                     return valueChanged;
                 }
                 
@@ -245,7 +245,7 @@ namespace XenkoCommunity.ImGuiDebug
                     else
                         Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
                     SameLine();
-                    TextUnformatted( name );
+                    TextUnformatted( constantName );
                     
                     NextColumn();
                     
@@ -337,11 +337,13 @@ namespace XenkoCommunity.ImGuiDebug
                 
                 Spacing();
                 TextDisabled( "As Enumerable" );
+                int index = 0;
                 foreach( object o in ienum )
                 {
                     object o2 = o;
                     using( UIndent() )
-                        DrawValue( $"- {o2}", ref o2, true, hashcodeSource );
+                        DrawValue( "-", ref o2, true, ( hashcodeSource, index ).GetHashCode() );
+                    index++;
                 }
             }
             Spacing();
@@ -374,31 +376,31 @@ namespace XenkoCommunity.ImGuiDebug
                     object keyToChange = null;
                     object valueOfKeyToChange = null;
                     
-                    int i = 0;
+                    int index = 0;
                     while( keys.MoveNext() && values.MoveNext() )
                     {
                         var key = keys.Current;
                         var value = values.Current;
-                        string keyString = key?.ToString() ?? "null";
-                        bool changed = DrawValue( $"{keyString}({i.ToString()})", ref value, false, hashcodeSource );
-                        if( changed )
+                        // hashcode with index: key is guaranteed to be unique and constant but not its ToString()
+                        int newHash = ( hashcodeSource, index ).GetHashCode();
+                        using( ID( newHash ) )
                         {
-                            changeKey = true;
-                            keyToChange = key;
-                            valueOfKeyToChange = value;
-                        }
-                        
-                        SameLine();
-                        using( ID( $"{keyString}{i.ToString()}" ) )
-                        {
+                            SetCursorPosX( GetCursorPosX() - DUMMY_WIDTH );
                             if( Button( "x" ) )
                             {
                                 removeKey = true;
                                 keyToRemove = key;
                             }
                         }
+                        SameLine();
+                        if( DrawValue( key?.ToString() ?? "null", ref value, false, newHash ) )
+                        {
+                            changeKey = true;
+                            keyToChange = key;
+                            valueOfKeyToChange = value;
+                        }
 
-                        i++;
+                        index++;
                     }
 
                     if( removeKey )
@@ -468,18 +470,17 @@ namespace XenkoCommunity.ImGuiDebug
                 foreach( object o in target as IEnumerable )
                 {
                     object o2 = o;
-                    bool changed = DrawValue( $"{i.ToString()}: {o}", ref o2, false, hashcodeSource );
-                    if( changed )
+                    using( ID( $"{o}{i.ToString()}" ) )
+                    {
+                        SetCursorPosX( GetCursorPosX() - DUMMY_WIDTH );
+                        if( Button( "x" ) )
+                            indexToRemove = i;
+                    }
+                    SameLine();
+                    if( DrawValue( $"{i.ToString()}:", ref o2, false, hashcodeSource ) )
                     {
                         indexToChange = i;
                         objectToAssign = o2;
-                    }
-                    
-                    SameLine();
-                    using( ID( $"{o}{i.ToString()}" ) )
-                    {
-                        if( Button( "x" ) )
-                            indexToRemove = i;
                     }
                     
                     i++;
