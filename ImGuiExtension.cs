@@ -23,8 +23,7 @@ namespace XenkoCommunity.ImGuiDebug
         }
         public static DisposableImGui<Empty> UCombo( string label, string previewValue, out bool open, ImGuiComboFlags flags = ImGuiComboFlags.None )
         {
-            open = BeginCombo( label, previewValue, flags );
-            return new DisposableImGui<Empty>( true, DisposableTypes.Combo );
+            return new DisposableImGui<Empty>( open = BeginCombo( label, previewValue, flags ), DisposableTypes.Combo );
         }
         public static DisposableImGui<Empty> Tooltip()
         {
@@ -50,7 +49,8 @@ namespace XenkoCommunity.ImGuiDebug
         public static DisposableImGui<Empty> Child( [ CallerLineNumber ] int cln = 0, Vector2 size = default,
             bool border = false, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
         {
-            return new DisposableImGui<Empty>(BeginChild((uint)cln, size, border, flags), DisposableTypes.Child );
+            BeginChild( (uint) cln, size, border, flags );
+            return new DisposableImGui<Empty>(true, DisposableTypes.Child );
         }
         public static DisposableImGui<Empty> MenuBar(out bool open) => new DisposableImGui<Empty>(open = BeginMenuBar(), DisposableTypes.MenuBar );
         public static DisposableImGui<Empty> Menu(string label, out bool open, bool enabled = true) => new DisposableImGui<Empty>(open = BeginMenu(label, enabled), DisposableTypes.Menu );
