@@ -11,6 +11,16 @@ namespace XenkoCommunity.ImGuiDebug
     
     public static class ImGuiExtension
     {
+        public static DisposableImGui<Empty> ID( string id )
+        {
+            PushID( id );
+            return new DisposableImGui<Empty>( true, DisposableTypes.ID );
+        }
+        public static DisposableImGui<Empty> ID( int id )
+        {
+            PushID( id );
+            return new DisposableImGui<Empty>( true, DisposableTypes.ID );
+        }
         public static DisposableImGui<Empty> UCombo( string label, string previewValue, out bool open, ImGuiComboFlags flags = ImGuiComboFlags.None )
         {
             open = BeginCombo( label, previewValue, flags );
@@ -72,6 +82,7 @@ namespace XenkoCommunity.ImGuiDebug
                     case DisposableTypes.Tooltip: EndTooltip(); return;
                     case DisposableTypes.Columns: Columns(1); return;
                     case DisposableTypes.Combo: EndCombo(); return;
+                    case DisposableTypes.ID: PopID(); return;
                     case DisposableTypes.Indentation:
                         if( _parameters is float f )
                             Unindent(f);
@@ -92,7 +103,8 @@ namespace XenkoCommunity.ImGuiDebug
             Indentation,
             Tooltip,
             Columns,
-            Combo
+            Combo,
+            ID
         }
         
         public static void PlotLines

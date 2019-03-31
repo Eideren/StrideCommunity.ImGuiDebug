@@ -202,126 +202,127 @@ namespace XenkoCommunity.ImGuiDebug
             // The hashcode created here, properly create one specific code for this object at this place in the hierarchy
             // of course hashcodes still aren't unique but this should work well enough for now
             int memberInHierarchyId = (hashcodeSource, name).GetHashCode();
-            PushID( memberInHierarchyId );
-            
-            if( value == null )
+            using( ID( memberInHierarchyId ) )
             {
-                Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
+                if( value == null )
+                {
+                    Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
+                    using( UColumns( 2 ) )
+                    {
+                        TextUnformatted( name );
+                        NextColumn();
+                        TextUnformatted( "null" );
+                    }
+                    return false;
+                }
+    
+                TypeCache typeData = GetTypeData( value.GetType() );
+                bool valueChanged = false;
+                if( ValueDrawingHandlers.TryGetValue( value.GetType(), out var handler ) )
+                {
+                    valueChanged = handler( name, ref value );
+                    return valueChanged;
+                }
+                
+                bool recursable = Type.GetTypeCode( value.GetType() ) == TypeCode.Object;
+                recursable = recursable && ( typeData.FilteredMembers.Length > 0 || ReadableIEnumerable(value) );
+                
+                bool recurse = recursable && _openedId.Contains( memberInHierarchyId );
+                
                 using( UColumns( 2 ) )
                 {
-                    TextUnformatted( name );
-                    NextColumn();
-                    TextUnformatted( "null" );
-                }
-                return false;
-            }
-
-            TypeCache typeData = GetTypeData( value.GetType() );
-            bool valueChanged = false;
-            if( ValueDrawingHandlers.TryGetValue( value.GetType(), out var handler ) )
-            {
-                valueChanged = handler( name, ref value );
-                return valueChanged;
-            }
-            
-            bool recursable = Type.GetTypeCode( value.GetType() ) == TypeCode.Object;
-            recursable = recursable && ( typeData.FilteredMembers.Length > 0 || ReadableIEnumerable(value) );
-            
-            bool recurse = recursable && _openedId.Contains( memberInHierarchyId );
-            
-            using( UColumns( 2 ) )
-            {
-                // Present button to recurse through value
-                if( recursable )
-                {
-                    if( ArrowButton( "", recurse ? ImGuiDir.Down : ImGuiDir.Right ) )
+                    // Present button to recurse through value
+                    if( recursable )
                     {
-                        if( recurse )
-                            _openedId.Remove( memberInHierarchyId );
-                        else
-                            _openedId.Add( memberInHierarchyId );
-                    }
-                }
-                else
-                    Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
-                SameLine();
-                TextUnformatted( name );
-                
-                NextColumn();
-                
-                // Complex object: present button to swap inspect target to this object ?
-                if( Type.GetTypeCode( value.GetType() ) == TypeCode.Object && value.GetType().IsClass )
-                {
-                    if( Button( value.ToString() ) )
-                        Target = value;
-                    goto RECURSE;
-                }
-                // Basic value type: Present UI handler for values
-                else if( readOnly == false )
-                {
-                    switch( value )
-                    {
-                        // if(valueChanged) => to cast / generate garbage only when the value changed
-                        case bool v: valueChanged = Checkbox( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
-                        case string v: valueChanged = InputText( "", ref v, 99 ); if(valueChanged){ value = v; } return valueChanged;
-                        case float v: valueChanged = InputFloat( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
-                        case double v: valueChanged = InputDouble( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
-                        case int v: valueChanged = InputInt( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
-                        // c = closest type that ImGui implements natively, manually cast it to the right type afterward
-                        case uint v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (uint)c; } return valueChanged; }
-                        case long v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (long)c; } return valueChanged; }
-                        case ulong v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (ulong)c; } return valueChanged; }
-                        case short v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (short)c; } return valueChanged; }
-                        case ushort v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (ushort)c; } return valueChanged; }
-                        case byte v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (byte)c; } return valueChanged; }
-                        case sbyte v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (sbyte)c; } return valueChanged; }
-                    }
-                }
-                if( typeData.asEnum != null )
-                {
-                    ( bool flags, Array values ) = typeData.asEnum.Value;
-                    using( UCombo( "", value.ToString(), out bool open ) )
-                    {
-                        if( open )
+                        if( ArrowButton( "", recurse ? ImGuiDir.Down : ImGuiDir.Right ) )
                         {
-                            foreach( object o in values )
+                            if( recurse )
+                                _openedId.Remove( memberInHierarchyId );
+                            else
+                                _openedId.Add( memberInHierarchyId );
+                        }
+                    }
+                    else
+                        Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
+                    SameLine();
+                    TextUnformatted( name );
+                    
+                    NextColumn();
+                    
+                    // Complex object: present button to swap inspect target to this object ?
+                    if( Type.GetTypeCode( value.GetType() ) == TypeCode.Object && value.GetType().IsClass )
+                    {
+                        if( Button( value.ToString() ) )
+                            Target = value;
+                        goto RECURSE;
+                    }
+                    // Basic value type: Present UI handler for values
+                    else if( readOnly == false )
+                    {
+                        switch( value )
+                        {
+                            // if(valueChanged) => to cast / generate garbage only when the value changed
+                            case bool v: valueChanged = Checkbox( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
+                            case string v: valueChanged = InputText( "", ref v, 99 ); if(valueChanged){ value = v; } return valueChanged;
+                            case float v: valueChanged = InputFloat( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
+                            case double v: valueChanged = InputDouble( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
+                            case int v: valueChanged = InputInt( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
+                            // c = closest type that ImGui implements natively, manually cast it to the right type afterward
+                            case uint v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (uint)c; } return valueChanged; }
+                            case long v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (long)c; } return valueChanged; }
+                            case ulong v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (ulong)c; } return valueChanged; }
+                            case short v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (short)c; } return valueChanged; }
+                            case ushort v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (ushort)c; } return valueChanged; }
+                            case byte v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (byte)c; } return valueChanged; }
+                            case sbyte v: { int c = (int)v; valueChanged = InputInt( "", ref c ); if(valueChanged){ value = (sbyte)c; } return valueChanged; }
+                        }
+                    }
+                    if( typeData.asEnum != null )
+                    {
+                        ( bool flags, Array values ) = typeData.asEnum.Value;
+                        using( UCombo( "", value.ToString(), out bool open ) )
+                        {
+                            if( open )
                             {
-                                ulong fieldValue = GetEnumBits( value );
-                                ulong compValue = GetEnumBits( o );
-                                bool selected;
-                                if( flags )
-                                    selected = ( fieldValue & compValue ) == compValue;
-                                else
-                                    selected = fieldValue == compValue;
-                                
-                                if( Selectable( o.ToString(), selected ) )
+                                foreach( object o in values )
                                 {
+                                    ulong fieldValue = GetEnumBits( value );
+                                    ulong compValue = GetEnumBits( o );
+                                    bool selected;
                                     if( flags )
+                                        selected = ( fieldValue & compValue ) == compValue;
+                                    else
+                                        selected = fieldValue == compValue;
+                                    
+                                    if( Selectable( o.ToString(), selected ) )
                                     {
-                                        if( selected ) // unselect this value
-                                            compValue = fieldValue & ~compValue;
-                                        else // select new value
-                                            compValue = fieldValue | compValue;
+                                        if( flags )
+                                        {
+                                            if( selected ) // unselect this value
+                                                compValue = fieldValue & ~compValue;
+                                            else // select new value
+                                                compValue = fieldValue | compValue;
+                                        }
+                                        value = GetEnumValueFromBits( compValue, value.GetType() );
+                                        valueChanged = true;
                                     }
-                                    value = GetEnumValueFromBits( compValue, value.GetType() );
-                                    valueChanged = true;
                                 }
                             }
+                            return valueChanged;
                         }
-                        return valueChanged;
                     }
+                    
+                    // Otherwise, present basic read-only text
+                    TextUnformatted( value.ToString() );
                 }
                 
-                // Otherwise, present basic read-only text
-                TextUnformatted( value.ToString() );
+                RECURSE:
+                
+                if( recurse ) // Pass in this member's id to properly offset sub-members' hash
+                    valueChanged = valueChanged || DrawMembers( value, memberInHierarchyId );
+                
+                return valueChanged;
             }
-            
-            RECURSE:
-            
-            if( recurse ) // Pass in this member's id to properly offset sub-members' hash
-                valueChanged = valueChanged || DrawMembers( value, memberInHierarchyId );
-            
-            return valueChanged;
         }
 
         void DrawIEnumTypes( object target, IEnumerable ienum, int hashcodeSource )
@@ -373,12 +374,13 @@ namespace XenkoCommunity.ImGuiDebug
                     object keyToChange = null;
                     object valueOfKeyToChange = null;
                     
+                    int i = 0;
                     while( keys.MoveNext() && values.MoveNext() )
                     {
                         var key = keys.Current;
                         var value = values.Current;
                         string keyString = key?.ToString() ?? "null";
-                        bool changed = DrawValue( keyString, ref value, false, hashcodeSource );
+                        bool changed = DrawValue( $"{keyString}({i.ToString()})", ref value, false, hashcodeSource );
                         if( changed )
                         {
                             changeKey = true;
@@ -387,12 +389,16 @@ namespace XenkoCommunity.ImGuiDebug
                         }
                         
                         SameLine();
-                        PushID( keyString );
-                        if( Button( "x" ) )
+                        using( ID( $"{keyString}{i.ToString()}" ) )
                         {
-                            removeKey = true;
-                            keyToRemove = key;
+                            if( Button( "x" ) )
+                            {
+                                removeKey = true;
+                                keyToRemove = key;
+                            }
                         }
+
+                        i++;
                     }
 
                     if( removeKey )
@@ -470,9 +476,11 @@ namespace XenkoCommunity.ImGuiDebug
                     }
                     
                     SameLine();
-                    PushID(o.ToString());
-                    if( Button( "x" ) )
-                        indexToRemove = i;
+                    using( ID( $"{o}{i.ToString()}" ) )
+                    {
+                        if( Button( "x" ) )
+                            indexToRemove = i;
+                    }
                     
                     i++;
                 }

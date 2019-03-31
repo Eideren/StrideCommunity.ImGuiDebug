@@ -54,31 +54,32 @@ namespace XenkoCommunity.ImGuiDebug
                     }
                     else return;
                 }
-    
-                PushID( child.Id.GetHashCode() );
-                
-                bool recurse = canRecurse && _recursingThrough.Contains( child.Id );
-                if( canRecurse )
+
+                using( ID( child.Id.GetHashCode() ) )
                 {
-                    if( ArrowButton( "", recurse ? ImGuiDir.Down : ImGuiDir.Right ) )
+                    bool recurse = canRecurse && _recursingThrough.Contains( child.Id );
+                    if( canRecurse )
+                    {
+                        if( ArrowButton( "", recurse ? ImGuiDir.Down : ImGuiDir.Right ) )
+                        {
+                            if( recurse )
+                                _recursingThrough.Remove( child.Id );
+                            else
+                                _recursingThrough.Add( child.Id );
+                        }
+                    }
+                    else
+                        Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
+                    SameLine();
+                    
+                    if( Button( label ) )
+                        Inspector.FindFreeInspector( Services ).Target = child;
+    
+                    using( UIndent( INDENTATION2 ) )
                     {
                         if( recurse )
-                            _recursingThrough.Remove( child.Id );
-                        else
-                            _recursingThrough.Add( child.Id );
+                            RecursiveDrawing( child, d+1 );
                     }
-                }
-                else
-                    Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
-                SameLine();
-                
-                if( Button( label ) )
-                    Inspector.FindFreeInspector( Services ).Target = child;
-
-                using( UIndent( INDENTATION2 ) )
-                {
-                    if( recurse )
-                        RecursiveDrawing( child, d+1 );
                 }
             }
         }
