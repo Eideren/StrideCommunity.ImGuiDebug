@@ -209,6 +209,8 @@ namespace XenkoCommunity.ImGuiDebug
                     Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
                     using( UColumns( 2 ) )
                     {
+                        Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
+                        SameLine();
                         TextUnformatted( constantName );
                         NextColumn();
                         TextUnformatted( "null" );
@@ -264,7 +266,7 @@ namespace XenkoCommunity.ImGuiDebug
                             // if(valueChanged) => to cast / generate garbage only when the value changed
                             case bool v: valueChanged = Checkbox( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
                             case string v: valueChanged = InputText( "", ref v, 99 ); if(valueChanged){ value = v; } return valueChanged;
-                            case float v: valueChanged = InputFloat( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
+                            case float v: valueChanged = DragFloat( "", ref v, RelativeDragSpeed( v ) ); if(valueChanged){ value = v; } return valueChanged;
                             case double v: valueChanged = InputDouble( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
                             case int v: valueChanged = InputInt( "", ref v ); if(valueChanged){ value = v; } return valueChanged;
                             // c = closest type that ImGui implements natively, manually cast it to the right type afterward
@@ -565,6 +567,13 @@ namespace XenkoCommunity.ImGuiDebug
                 if( valueType == typeof(sbyte) ) return (sbyte)bits;
             }
             throw new InvalidOperationException();
+        }
+
+        static float RelativeDragSpeed( in float currentValue )
+        {
+            float finalSpeed = currentValue < 0f ? -currentValue : currentValue;
+            finalSpeed *= 0.1f;
+            return finalSpeed < 0.001f ? 0.001f : finalSpeed;
         }
 
         [ Flags ]
