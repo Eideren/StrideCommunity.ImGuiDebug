@@ -17,6 +17,8 @@ namespace XenkoCommunity.ImGuiDebug
     {
         public float GraphHeight = 48;
         public float FrameHeight = 128;
+        public bool PauseEval;
+        public bool PauseOnLargeDelta;
         
         // Work agnostic data
         Dictionary<Thread, ThreadSampleCollection> _cpuSamples = new Dictionary<Thread, ThreadSampleCollection>();
@@ -33,8 +35,6 @@ namespace XenkoCommunity.ImGuiDebug
         GraphPoint _graphAggregated;
         GraphPoint[] _graph = new GraphPoint[256];
         
-        bool _pauseEval;
-
         static readonly ProfilingEventType[] PROFILING_EVENT_TYPES = (ProfilingEventType[])System.Enum.GetValues( typeof(ProfilingEventType) );
         static ProfilingKey _dummyKey = new ProfilingKey("dummy");
         List<ProfilingKey> _tempList = new List<ProfilingKey>();
@@ -100,13 +100,15 @@ namespace XenkoCommunity.ImGuiDebug
                 return;
             using( UColumns( 2 ) )
             {
-                Checkbox( "Pause", ref _pauseEval );
+                Checkbox( "Pause", ref PauseEval );
                 NextColumn();
-                int sampleSize = _graph.Length;
-                InputInt( "Sample Size", ref sampleSize );
-                if( sampleSize != _graph.Length )
-                    SetGraphSize( sampleSize );
+                Checkbox( "Pause on large delta", ref PauseOnLargeDelta );
             }
+            
+            int sampleSize = _graph.Length;
+            InputInt( "Sample Size", ref sampleSize );
+            if( sampleSize != _graph.Length )
+                SetGraphSize( sampleSize );
             
             { // Draw and update frame-time graph
                 float min = float.MaxValue, max = float.MinValue;
@@ -270,7 +272,7 @@ namespace XenkoCommunity.ImGuiDebug
         
         public void EndFrame()
         {
-            if( _pauseEval )
+            if( PauseEval )
             {
                 foreach( var kvp in _cpuSamples )
                     kvp.Value.ClearBuffered();
@@ -368,6 +370,12 @@ namespace XenkoCommunity.ImGuiDebug
                 BufferMemMB = (float) ( GraphicsDevice.BuffersMemory / MB ),
                 TexMemMB = (float) ( GraphicsDevice.TextureMemory / MB )
             };
+
+            if( PauseOnLargeDelta )
+            {
+                if( newPoint.FrameTime < Average.FrameTime * 0.5f || newPoint.FrameTime > Average.FrameTime * 1.5f )
+                    PauseEval = true;
+            }
             
             // Use simple aggregate to avoid having to loop through the array to get the average
             _graphAggregated -= _graph[ 0 ];
