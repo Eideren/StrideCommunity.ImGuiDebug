@@ -60,7 +60,7 @@ namespace XenkoCommunity.ImGuiDebug
                 _cachedTypeData.Clear();
             }
         }
-        Filter _memberFilter = Filter.Public | Filter.Inherited | Filter.Properties | Filter.Fields;
+        Filter _memberFilter = Filter.Public | Filter.Inherited | Filter.Properties | Filter.Fields | Filter.Instance;
         /// <summary> The object to inspect </summary>
         public object Target
         {
@@ -115,7 +115,6 @@ namespace XenkoCommunity.ImGuiDebug
                 return;
 
             Checkbox( "Locked", ref Locked );
-            Checkbox( "Enumerable view", ref EnumerableView );
             using( UCombo( "Filter", MemberFilter.ToString(), out bool open ) )
             {
                 if( open )
@@ -133,6 +132,9 @@ namespace XenkoCommunity.ImGuiDebug
                     }
                 }
             }
+            Checkbox( "Enumerable view", ref EnumerableView );
+            SameLine();
+            Checkbox( "Type as static ref", ref TypeAsStatic );
             
             Spacing();
             
