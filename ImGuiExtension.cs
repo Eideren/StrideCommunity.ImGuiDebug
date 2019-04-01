@@ -11,64 +11,81 @@ namespace XenkoCommunity.ImGuiDebug
     
     public static class ImGuiExtension
     {
-        public static DisposableImGui<Empty> ID( string id )
+        public static DisposableImGui ID( string id )
         {
             PushID( id );
-            return new DisposableImGui<Empty>( true, DisposableTypes.ID );
+            return new DisposableImGui( true, DisposableTypes.ID );
         }
-        public static DisposableImGui<Empty> ID( int id )
+        public static DisposableImGui ID( int id )
         {
             PushID( id );
-            return new DisposableImGui<Empty>( true, DisposableTypes.ID );
+            return new DisposableImGui( true, DisposableTypes.ID );
         }
-        public static DisposableImGui<Empty> UCombo( string label, string previewValue, out bool open, ImGuiComboFlags flags = ImGuiComboFlags.None )
+        public static DisposableImGui UCombo( string label, string previewValue, out bool open, ImGuiComboFlags flags = ImGuiComboFlags.None )
         {
-            return new DisposableImGui<Empty>( open = BeginCombo( label, previewValue, flags ), DisposableTypes.Combo );
+            return new DisposableImGui( open = BeginCombo( label, previewValue, flags ), DisposableTypes.Combo );
         }
-        public static DisposableImGui<Empty> Tooltip()
+        public static DisposableImGui Tooltip()
         {
             BeginTooltip();
-            return new DisposableImGui<Empty>( true, DisposableTypes.Tooltip );
+            return new DisposableImGui( true, DisposableTypes.Tooltip );
         }
         public static DisposableImGui<float> UIndent( float size = 0f )
         {
             Indent(size);
             return new DisposableImGui<float>( true, DisposableTypes.Indentation, size );
         }
-        public static DisposableImGui<Empty> UColumns( int count, string id = null, bool border = false )
+        public static DisposableImGui UColumns( int count, string id = null, bool border = false )
         {
             Columns( count, id, border );
-            return new DisposableImGui<Empty>( true, DisposableTypes.Columns );
+            return new DisposableImGui( true, DisposableTypes.Columns );
         }
-        public static DisposableImGui<Empty> Window( string name, ref bool open, out bool collapsed, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
+        public static DisposableImGui Window( string name, ref bool open, out bool collapsed, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
         {
             collapsed = ! Begin( name, ref open, flags );
-            return new DisposableImGui<Empty>( true, DisposableTypes.Window );
+            return new DisposableImGui( true, DisposableTypes.Window );
         }
         
-        public static DisposableImGui<Empty> Child( [ CallerLineNumber ] int cln = 0, Vector2 size = default,
+        public static DisposableImGui Child( [ CallerLineNumber ] int cln = 0, Vector2 size = default,
             bool border = false, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
         {
             BeginChild( (uint) cln, size, border, flags );
-            return new DisposableImGui<Empty>(true, DisposableTypes.Child );
+            return new DisposableImGui(true, DisposableTypes.Child );
         }
-        public static DisposableImGui<Empty> MenuBar(out bool open) => new DisposableImGui<Empty>(open = BeginMenuBar(), DisposableTypes.MenuBar );
-        public static DisposableImGui<Empty> Menu(string label, out bool open, bool enabled = true) => new DisposableImGui<Empty>(open = BeginMenu(label, enabled), DisposableTypes.Menu );
+        public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar );
+        public static DisposableImGui Menu(string label, out bool open, bool enabled = true) => new DisposableImGui(open = BeginMenu(label, enabled), DisposableTypes.Menu );
         
         
         public struct DisposableImGui<T> : IDisposable
         {
             T _parameters;
-            bool _dispose;
-            DisposableTypes _type;
+            DisposableImGui _innerObj;
 
             public DisposableImGui( bool dispose, DisposableTypes type, T parameters = default )
             {
+                _parameters = parameters;
+                _innerObj = new DisposableImGui( dispose, type );
+            }
+            public void Dispose() => _innerObj.Dispose( _parameters );
+        }
+        
+        public struct DisposableImGui : IDisposable
+        {
+            bool _dispose;
+            DisposableTypes _type;
+
+            public DisposableImGui( bool dispose, DisposableTypes type )
+            {
                 _dispose = dispose;
                 _type = type;
-                _parameters = parameters;
             }
+
             public void Dispose()
+            {
+                // Dummy object
+                Dispose(true);
+            }
+            public void Dispose<T>(T _parameters)
             {
                 if( ! _dispose )
                     return;
