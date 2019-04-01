@@ -43,8 +43,24 @@ namespace XenkoCommunity.ImGuiDebug
         public bool Locked = false;
         /// <summary> Show specialized interface to handle IEnumerable types </summary>
         public bool EnumerableView = true;
+        /// <summary>
+        /// For <see cref="Target"/> of type <see cref="System.Type"/>, return the content of 'static type.*' instead of 'typeof(type).*'
+        /// </summary>
+        public bool TypeAsStatic = true;
+
         /// <summary> Members shown within the interface </summary>
-        public Filter MemberFilter = Filter.Public | Filter.Inherited | Filter.Properties | Filter.Fields;
+        public Filter MemberFilter
+        {
+            get => _memberFilter;
+            set
+            {
+                if( _memberFilter == value )
+                    return;
+                _memberFilter = value;
+                _cachedTypeData.Clear();
+            }
+        }
+        Filter _memberFilter = Filter.Public | Filter.Inherited | Filter.Properties | Filter.Fields;
         /// <summary> The object to inspect </summary>
         public object Target
         {
@@ -100,21 +116,20 @@ namespace XenkoCommunity.ImGuiDebug
 
             Checkbox( "Locked", ref Locked );
             Checkbox( "Enumerable view", ref EnumerableView );
-            if( CollapsingHeader( "Filter" ) )
+            using( UCombo( "Filter", MemberFilter.ToString(), out bool open ) )
             {
-                using( UColumns( 2 ) )
+                if( open )
                 {
-                    uint filterImGui = (uint)MemberFilter;
-                    foreach( Filter def in FILTER_VALUES )
+                    foreach( Filter o in FILTER_VALUES )
                     {
-                        CheckboxFlags( def.ToString(), ref filterImGui, (uint)def );
-                        NextColumn();
-                    }
-                    // On change, clear members to force re-filter
-                    if( filterImGui != (uint) MemberFilter )
-                    {
-                        MemberFilter = (Filter) filterImGui;
-                        _cachedTypeData.Clear();
+                        bool selected = ( MemberFilter & o ) == o;     
+                        if( Selectable( o.ToString(), selected ) )
+                        {
+                            if( selected ) // unselect this value
+                                MemberFilter = MemberFilter & ~o;
+                            else // select new value
+                                MemberFilter = MemberFilter | o;
+                        }
                     }
                 }
             }
@@ -136,7 +151,8 @@ namespace XenkoCommunity.ImGuiDebug
             if(target == null)
                 return false;
 
-            MemberInfo[] members = GetTypeData( target.GetType() ).FilteredMembers;
+            Type type = TypeAsStatic && target is Type ? (Type)target : target.GetType();
+            MemberInfo[] members = GetTypeData( type ).FilteredMembers;
 
             bool hasChanged = false;
             using( UIndent( INDENTATION2 ) )
@@ -151,15 +167,20 @@ namespace XenkoCommunity.ImGuiDebug
                             if( member is FieldInfo fi )
                             {
                                 value = fi.GetValue( target );
-                                readOnly = false;
+                                readOnly = fi.IsInitOnly;
                             }
                             else if( member is PropertyInfo pi && pi.CanRead )
                             {
                                 value = pi.GetValue( target );
                                 readOnly = ! pi.CanWrite;
                             }
-                            else 
-                                continue;
+                            else if( member is Type asType )
+                            {
+                                value = asType;
+                                readOnly = true;
+                            }
+                            else
+                                throw new NotImplementedException($"UI handler for type {member.GetType()} not implemented");
                         }
                         catch( Exception e )
                         {
@@ -177,7 +198,7 @@ namespace XenkoCommunity.ImGuiDebug
                             if( member is FieldInfo fi )
                                 fi.SetValue( target, value );
                             else if( member is PropertyInfo pi )
-                                pi?.SetValue(target, value);
+                                pi?.SetValue( target, value );
                             else
                                 throw new NotImplementedException();
                         }
@@ -217,16 +238,16 @@ namespace XenkoCommunity.ImGuiDebug
                     }
                     return false;
                 }
-    
-                TypeCache typeData = GetTypeData( value.GetType() );
+                Type type = TypeAsStatic && value is Type ? (Type)value : value.GetType();
+                TypeCache typeData = GetTypeData( type );
                 bool valueChanged = false;
-                if( ValueDrawingHandlers.TryGetValue( value.GetType(), out var handler ) )
+                if( ValueDrawingHandlers.TryGetValue( type, out var handler ) )
                 {
                     valueChanged = handler( constantName, ref value );
                     return valueChanged;
                 }
                 
-                bool recursable = Type.GetTypeCode( value.GetType() ) == TypeCode.Object;
+                bool recursable = Type.GetTypeCode( type ) == TypeCode.Object;
                 recursable = recursable && ( typeData.FilteredMembers.Length > 0 || ReadableIEnumerable(value) );
                 
                 bool recurse = recursable && _openedId.Contains( memberInHierarchyId );
@@ -252,7 +273,7 @@ namespace XenkoCommunity.ImGuiDebug
                     NextColumn();
                     
                     // Complex object: present button to swap inspect target to this object ?
-                    if( Type.GetTypeCode( value.GetType() ) == TypeCode.Object && value.GetType().IsClass )
+                    if( Type.GetTypeCode( type ) == TypeCode.Object && type.IsClass )
                     {
                         if( Button( value.ToString() ) )
                             Target = value;
@@ -581,11 +602,12 @@ namespace XenkoCommunity.ImGuiDebug
         {
             Fields = 1,
             Properties = Fields << 1,
-            PublicStatic = Properties << 1,
-            NonPublicStatic = PublicStatic << 1,
-            Public = NonPublicStatic << 1,
+            SubTypes = Properties << 1,
+            Public = SubTypes << 1,
             NonPublic = Public << 1,
-            Inherited = NonPublic << 1,
+            Static = NonPublic << 1,
+            Instance = Static << 1,
+            Inherited = Instance << 1,
         }
         
         class TypeCache
@@ -648,7 +670,7 @@ namespace XenkoCommunity.ImGuiDebug
             
             bool PassesFilter( Type classType, MemberInfo m )
             {
-                if( ! ( m is FieldInfo || m is PropertyInfo ) )
+                if( ! ( m is FieldInfo || m is PropertyInfo || m is Type ) )
                     return false;
 
                 Filter memberFilter = 0;
@@ -662,46 +684,50 @@ namespace XenkoCommunity.ImGuiDebug
                         return false;
                     
                     memberFilter |= Filter.Fields;
-                    if( fi.IsPublic )
-                    {
-                        if( fi.IsStatic )
-                            memberFilter |= Filter.PublicStatic;
-                        else
-                            memberFilter |= Filter.Public;
-                    }
+                    if( fi.IsStatic )
+                        memberFilter |= Filter.Static;
                     else
-                    {
-                        if( fi.IsStatic )
-                            memberFilter |= Filter.NonPublicStatic;
-                        else
-                            memberFilter |= Filter.NonPublic;
-                    }
+                        memberFilter |= Filter.Instance;
+                    
+                    if( fi.IsPublic )
+                        memberFilter |= Filter.Public;
+                    else
+                        memberFilter |= Filter.NonPublic;
                 }
 
                 if( m is PropertyInfo pi )
                 {
-                    memberFilter |= Filter.Properties;
                     var method = pi.GetMethod;
                     if( method == null || method.GetParameters().Length != 0 )
                         return false;
                     
-                    if( method.IsPublic )
-                    {
-                        if( method.IsStatic )
-                            memberFilter |= Filter.PublicStatic;
-                        else
-                            memberFilter |= Filter.Public;
-                    }
+                    memberFilter |= Filter.Properties;
+                    if( method.IsStatic )
+                        memberFilter |= Filter.Static;
                     else
-                    {
-                        if( method.IsStatic )
-                            memberFilter |= Filter.NonPublicStatic;
-                        else
-                            memberFilter |= Filter.NonPublic;
-                    }
+                        memberFilter |= Filter.Instance;
+                    
+                    if( method.IsPublic )
+                        memberFilter |= Filter.Public;
+                    else
+                        memberFilter |= Filter.NonPublic;
                 }
 
-                return (memberFilter & _filter) == memberFilter;
+                if( m is Type innerType )
+                {
+                    memberFilter |= Filter.SubTypes;
+                    if( innerType.IsAbstract && innerType.IsSealed )
+                        memberFilter |= Filter.Static;
+                    else
+                        memberFilter |= Filter.Instance;
+                    
+                    if( innerType.IsPublic || innerType.IsNestedPublic )
+                        memberFilter |= Filter.Public;
+                    else
+                        memberFilter |= Filter.NonPublic;
+                }
+
+                return memberFilter != 0 && (memberFilter & _filter) == memberFilter;
             }
             
             static bool IsBackingField(FieldInfo fi)
