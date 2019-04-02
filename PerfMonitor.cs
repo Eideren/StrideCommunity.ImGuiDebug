@@ -26,18 +26,17 @@ namespace XenkoCommunity.ImGuiDebug
         (TimeSpan start, double duration) _cpuFrame;
         
         // Xenko-specific data
-        Dictionary<ProfilingKey, TemporaryXenkoSample> _bufferedEvents = new Dictionary<ProfilingKey, TemporaryXenkoSample>();
+        List<(ProfilingKey key, TemporaryXenkoSample sample)> _bufferedEvents = new List<(ProfilingKey, TemporaryXenkoSample)>();
         List<SampleInstance> _gpuSamples = new List<SampleInstance>();
         List<SampleInstance> _xenkoSamples = new List<SampleInstance>();
         (TimeSpan start, double duration) _gpuFrame, _xenkoFrame;
-        uint _gpuDepth, _xenkoDepth;
+        int _gpuDepth, _xenkoDepth;
         
         GraphPoint _graphAggregated;
         GraphPoint[] _graph = new GraphPoint[256];
         
         static readonly ProfilingEventType[] PROFILING_EVENT_TYPES = (ProfilingEventType[])System.Enum.GetValues( typeof(ProfilingEventType) );
         static ProfilingKey _dummyKey = new ProfilingKey("dummy");
-        List<ProfilingKey> _tempList = new List<ProfilingKey>();
         
         
         
@@ -81,6 +80,12 @@ namespace XenkoCommunity.ImGuiDebug
 
         public PerfMonitor( IServiceRegistry services ) : base( services ){ }
         
+        protected override void OnDestroy()
+        {
+            if( IsXenkoProfilingAll() )
+                Profiler.DisableAll();
+        }
+        
         
         
         
@@ -94,7 +99,15 @@ namespace XenkoCommunity.ImGuiDebug
         
         Vector2 GetGraphSize() => new Vector2(MaxWidth(), GraphHeight);
         float MaxWidth() => GetContentRegionAvailWidth();
+
         protected override void OnDraw( bool collapsed )
+        {
+            using( Sample( $"{nameof(PerfSampler)}:{nameof(ImGuiPass)}" ) )
+            {
+                ImGuiPass( collapsed );
+            }
+        }
+        void ImGuiPass( bool collapsed )
         {
             if( collapsed )
                 return;
@@ -245,7 +258,7 @@ namespace XenkoCommunity.ImGuiDebug
 
         static void DrawSample( Vector2 corner, float maxWidth, SampleInstance sample, TimeSpan start, double duration )
         {
-            const float MIN_SIZE = 5f;
+            const float MIN_SIZE = 2f;
             float height = GetTextLineHeightWithSpacing();
             // Get ratio of this sample compared to total frame duration
             float size = (float) ( sample.Duration / duration );
@@ -255,6 +268,12 @@ namespace XenkoCommunity.ImGuiDebug
             float pos = (float) ( sample.Start - start ).TotalMilliseconds;
             pos /= (float) duration;
             pos *= maxWidth;
+            // outside of view:left
+            if( pos + size < MIN_SIZE )
+                size += pos + size + MIN_SIZE;
+            // outside of view:right
+            if( pos > maxWidth - MIN_SIZE )
+                pos = maxWidth - MIN_SIZE;
             
             SetCursorPos( corner + new Vector2(pos, sample.Depth * height) );
             Button( sample.Id, new Vector2( size, height ) );
@@ -262,130 +281,113 @@ namespace XenkoCommunity.ImGuiDebug
                 using( Tooltip() )
                     TextUnformatted($"{sample.Id}:\n{S(sample.Duration)}ms");
         }
-        
-        
-        
-        
-        
-        
 
-        
+
         public void EndFrame()
         {
-            if( PauseEval )
+            using( Sample( $"{nameof(PerfSampler)}:{nameof(EndFrame)}" ) )
             {
-                foreach( var kvp in _cpuSamples )
-                    kvp.Value.ClearBuffered();
-                _timer = LightweightTimer.StartNew();
-                // CONSUME ALL PENDING EVENTS WHEN PROFILING IS ON TO AVOID XENKO TRIPPING ON ITSELF
-                Profiler.GetEvents( ProfilingEventType.CpuProfilingEvent, true );
-                return;
-            }
-
-            { // Manage xenko-specific profiler events
-                // aggregate any buffered xenko events
-                foreach( var eType in PROFILING_EVENT_TYPES )
-                {
-                    bool receivedData = false;
-                    foreach( var perfEvent in Profiler.GetEvents( eType, false ) )
+                bool isPaused = PauseEval;
+                using( Sample( $"{nameof(PerfSampler)}:XenkoProfilerParsing" ) )
+                { // Manage xenko-specific profiler events
+                    // aggregate any buffered xenko events, complete them if paused
+                    foreach( var eType in PROFILING_EVENT_TYPES )
                     {
-                        var v = Guaranteed( _bufferedEvents, perfEvent.Key );
-                        switch( perfEvent.Type )
+                        // Consume events even if we are paused as the queue doesn't
+                        // empty itself and will overflow given enough time.
+                        var events = Profiler.GetEvents( eType, false );
+                        // if there aren't any buffered events and we are paused, skip loop
+                        if( Depth( eType ) == 0 && isPaused )
+                            continue;
+                        foreach( var perfEvent in events )
                         {
-                            case ProfilingMessageType.Begin:
-                                v.Start = ComputeAccurateTimespan( perfEvent.TimeStamp, eType );
-                                v.Type = eType;
-                                v.Depth = Depth( eType )++;
-                                break;
-                            case ProfilingMessageType.End:
-                                Depth( eType )--;
-                                v.Duration = ComputeAccurateTimespan( perfEvent.ElapsedTime, eType );
-                                break;
-                            default:
-                                continue;
-                        }
-
-                        receivedData = true;
-    
-                        _bufferedEvents[ perfEvent.Key ] = v;
-                    }
-                    
-                    // Check if events finished and push them to display if they are
-                    // <= 1: the cpu profiler seems to have a never-ending event created, perhaps application lifetime ?
-                    // I haven't really investigated it
-                    if( receivedData && Depth( eType ) <= 1 )
-                    {
-                        var receiver = Receiver( eType );
-                        // Clear past frames
-                        receiver.Clear();
-                        
-                        foreach( var kvp in _bufferedEvents )
-                        {
-                            var tempSample = kvp.Value;
-                            if( tempSample.Type != eType )
-                                continue;
-                            
-                            var id = kvp.Key.Name;
-                            var sample = new SampleInstance( id, tempSample.Depth, tempSample.Start, tempSample.Duration.TotalMilliseconds );
-                            receiver.Add( sample );
-                            // Mark this key for removal
-                            _tempList.Add( kvp.Key );
-                        }
-                        
-                        // Find min-max
-                        if( receiver.Count > 0 )
-                        {
-                            TimeSpan min = TimeSpan.MaxValue, max = TimeSpan.MinValue;
-                            foreach( var data in receiver )
+                            if( perfEvent.Type == ProfilingMessageType.Begin )
                             {
-                                TimeSpan cMin = data.Start;
-                                TimeSpan cMax = cMin + TimeSpan.FromMilliseconds( data.Duration );
-                                if( cMin < min )
-                                    min = cMin;
-                                if( cMax > max )
-                                    max = cMax;
+                                if( isPaused )
+                                    continue;
+                                TemporaryXenkoSample txs = new TemporaryXenkoSample
+                                {
+                                    Start = ComputeAccurateTimespan( perfEvent.TimeStamp, eType ),
+                                    Type = eType,
+                                    Depth = Depth( eType )++
+                                };
+                                _bufferedEvents.Add( ( perfEvent.Key, txs ) );
                             }
-                            Frames( eType ) = ( min, ( max - min ).TotalMilliseconds );
+                            else if( perfEvent.Type == ProfilingMessageType.End )
+                            {
+                                int? index = null;
+                                for( int i = _bufferedEvents.Count - 1; i >= 0; i-- )
+                                {
+                                    var v = _bufferedEvents[ i ];
+                                    if( v.key == perfEvent.Key )
+                                    {
+                                        // The closest begin doesn't own this end
+                                        // We probably paused and didn't quite reach depth 0
+                                        if( v.sample.Duration != null )
+                                            break;
+                                        index = i;
+                                        break;
+                                    }
+                                }
+    
+                                // Process buffered messages to completion
+                                if( index is null )
+                                    continue;
+                                
+                                Depth( eType )--;
+                                var temp = _bufferedEvents[ index.Value ];
+                                temp.sample.Duration = ComputeAccurateTimespan( perfEvent.ElapsedTime, eType );
+                                _bufferedEvents[ index.Value ] = temp;
+                                
+                                // All events started and ended
+                                if( Depth( eType ) == 0 )
+                                    PushXenkoFrame( eType );
+                            }
+                            else
+                                continue;
                         }
                     }
-
                 }
-                // Remove finished events
-                foreach( var key in _tempList )
-                    _bufferedEvents.Remove( key );
-                _tempList.Clear();
+                
+                if( isPaused )
+                {
+                    foreach( var kvp in _cpuSamples )
+                        kvp.Value.ClearBuffered();
+                    _timer = LightweightTimer.StartNew();
+                    return;
+                }
+    
+                foreach( var threadSample in _cpuSamples )
+                    threadSample.Value.SetReady();
+    
+                _cpuFrame = ( _timer.InitTime, _timer.Restart().TotalMilliseconds );
+    
+                const double MB = ( 1 << 20 );
+                GraphPoint newPoint = new GraphPoint
+                {
+                    FrameTime = (float) _cpuFrame.duration,
+                    TotalManagedMB = (float) ( System.GC.GetTotalMemory( false ) / MB ),
+                    DrawCalls = GraphicsDevice.FrameDrawCalls,
+                    BufferMemMB = (float) ( GraphicsDevice.BuffersMemory / MB ),
+                    TexMemMB = (float) ( GraphicsDevice.TextureMemory / MB )
+                };
+    
+                if( PauseOnLargeDelta )
+                {
+                    if( newPoint.FrameTime < Average.FrameTime * 0.5f || newPoint.FrameTime > Average.FrameTime * 1.5f )
+                        PauseEval = true;
+                }
+                
+                // Use simple aggregate to avoid having to loop through the array to get the average
+                _graphAggregated -= _graph[ 0 ];
+                _graphAggregated += newPoint;
+    
+                // Move each value to a lower position in the array, could be replaced by a mem copy ?
+                for( int i = 0; i < _graph.Length - 1; i++ )
+                    _graph[ i ] = _graph[ i + 1 ];
+                // Push latest onto our plot
+                _graph[ _graph.Length - 1 ] = newPoint;
             }
-
-            foreach( var threadSample in _cpuSamples )
-                threadSample.Value.SetReady();
-
-            _cpuFrame = ( _timer.InitTime, _timer.Restart().TotalMilliseconds );
-
-            const double MB = ( 1 << 20 );
-            GraphPoint newPoint = new GraphPoint
-            {
-                FrameTime = (float) _cpuFrame.duration,
-                TotalManagedMB = (float) ( System.GC.GetTotalMemory( false ) / MB ),
-                DrawCalls = GraphicsDevice.FrameDrawCalls,
-                BufferMemMB = (float) ( GraphicsDevice.BuffersMemory / MB ),
-                TexMemMB = (float) ( GraphicsDevice.TextureMemory / MB )
-            };
-
-            if( PauseOnLargeDelta )
-            {
-                if( newPoint.FrameTime < Average.FrameTime * 0.5f || newPoint.FrameTime > Average.FrameTime * 1.5f )
-                    PauseEval = true;
-            }
-            
-            // Use simple aggregate to avoid having to loop through the array to get the average
-            _graphAggregated -= _graph[ 0 ];
-            _graphAggregated += newPoint;
-
-            // Move each value to a lower position in the array, could be replaced by a mem copy ?
-            for( int i = 0; i < _graph.Length - 1; i++ )
-                _graph[ i ] = _graph[ i + 1 ];
-            // Push latest onto our plot
-            _graph[ _graph.Length - 1 ] = newPoint;
         }
 
         public void SetGraphSize( int newSize, bool force = false )
@@ -419,14 +421,40 @@ namespace XenkoCommunity.ImGuiDebug
             for( int i = 0; i < _graph.Length; i++ )
                 _graphAggregated += _graph[ i ];
         }
-
-        protected override void OnDestroy()
+        
+        
+        void PushXenkoFrame( ProfilingEventType eType )
         {
-            if( IsXenkoProfilingAll() )
-                Profiler.DisableAll();
+            var receiver = Receiver( eType );
+            // Clear past frames
+            receiver.Clear();
+
+            TimeSpan min = TimeSpan.MaxValue, max = TimeSpan.MinValue;
+            for( int i = 0; i < _bufferedEvents.Count; i++ )
+            {
+                ( ProfilingKey key, TemporaryXenkoSample tempSample ) = _bufferedEvents[ i ];
+                if( tempSample.Type != eType || tempSample.Duration is null )
+                    continue;
+                
+                var id = key.Name;
+                var sample = new SampleInstance( id, tempSample.Depth, tempSample.Start.Value, tempSample.Duration.Value.TotalMilliseconds );
+                receiver.Add( sample );
+                
+                TimeSpan cMin = tempSample.Start.Value;
+                TimeSpan cMax = cMin + tempSample.Duration.Value;
+                if( cMin < min )
+                    min = cMin;
+                if( cMax > max )
+                    max = cMax;
+                
+                // Mark this key for removal
+                _bufferedEvents.RemoveAt( i-- );
+            }
+            
+            // Find min-max
+            if( receiver.Count > 0 )
+                Frames( eType ) = ( min, ( max - min ).TotalMilliseconds );
         }
-        
-        
         
         
         
@@ -450,7 +478,7 @@ namespace XenkoCommunity.ImGuiDebug
             }
         }
         
-        ref uint Depth( ProfilingEventType type )
+        ref int Depth( ProfilingEventType type )
         {
             switch( type )
             {
@@ -525,7 +553,7 @@ namespace XenkoCommunity.ImGuiDebug
         {
             readonly LightweightTimer _timer;
             readonly string _id;
-            readonly uint _depth;
+            readonly int _depth;
             readonly bool _valid;
             readonly ThreadSampleCollection _target;
             
@@ -663,11 +691,11 @@ namespace XenkoCommunity.ImGuiDebug
         readonly struct SampleInstance
         {
             public readonly string Id;
-            public readonly uint Depth;
+            public readonly int Depth;
             public readonly TimeSpan Start;
             public readonly double Duration;
 
-            public SampleInstance(string id, uint depth, TimeSpan start, double duration)
+            public SampleInstance(string id, int depth, TimeSpan start, double duration)
             {
                 Id = id;
                 Depth = depth;
@@ -682,9 +710,9 @@ namespace XenkoCommunity.ImGuiDebug
         struct TemporaryXenkoSample
         {
             public ProfilingEventType Type;
-            public TimeSpan Start;
-            public TimeSpan Duration;
-            public uint Depth;
+            public TimeSpan? Start;
+            public TimeSpan? Duration;
+            public int Depth;
         }
 
 
@@ -702,7 +730,7 @@ namespace XenkoCommunity.ImGuiDebug
             /// should be incremented when starting and decremented
             /// when ending a sample by the <see cref="PerfSampler"/>.
             /// </summary>
-            public uint Depth;
+            public int Depth;
             /// <summary>
             /// Display-ready samples: samples that have ended before the end of the frame.
             /// </summary>
