@@ -191,6 +191,16 @@ namespace XenkoCommunity.ImGuiDebug
                         }
                     }
 
+                    if( XMLDocumentation.TryGetSummary( member, out string summary ) )
+                    {
+                        SetCursorPosX( - 0.5f );
+                        Button( "?" );
+                        if( IsItemHovered() )
+                            using( Tooltip() )
+                                TextUnformatted( summary );
+                        SameLine();
+                    }
+                    
                     bool changed = DrawValue(member.Name, ref value, readOnly, hashcodeSource);
                     if( changed && !readOnly )
                     {
@@ -206,7 +216,7 @@ namespace XenkoCommunity.ImGuiDebug
                         }
                         catch( Exception e )
                         {
-                            System.Console.Out?.WriteLine( e );
+                            Console.Out?.WriteLine( e );
                         }
                     }
                 }
