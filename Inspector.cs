@@ -524,9 +524,19 @@ namespace XenkoCommunity.ImGuiDebug
                 // Calling 'this[int indexToChange] = objectToAssign'
                 if( indexToChange != null )
                 {
-                    var parameters = new[] { indexToChange.Value, objectToAssign };
-                    target.GetType().GetProperty( "Item", typeData.AsList, new[] { typeof(int) } ) ? 
-                        .SetMethod.Invoke( target, parameters );
+                    MethodInfo listAccessor;
+                    if( target.GetType().IsArray )
+                    {
+                        listAccessor = target.GetType().GetMethod( "SetValue", new[] { typeof(object), typeof(int) } );
+                        listAccessor?.Invoke( target, new[] { objectToAssign, indexToChange.Value } );
+                    }
+                    else
+                    {
+                        listAccessor = target.GetType().GetProperty( "Item", typeData.AsList, new[] { typeof(int) } )?.SetMethod;
+                        listAccessor?.Invoke( target, new []{ indexToChange.Value, objectToAssign } );
+                    }
+                    if( listAccessor == null )
+                        System.Console.WriteLine($"Couldn't find {nameof(listAccessor)} for {target.GetType()}");
                 }
                 // Calling 'RemoveAt(int index)'
                 if( indexToRemove != null )
