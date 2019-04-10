@@ -25,6 +25,15 @@ namespace XenkoCommunity.ImGuiDebug
         LightweightTimer _timer = LightweightTimer.StartNew();
         (TimeSpan start, double duration) _cpuFrame;
         
+        /// <summary>
+        /// Circumvent <see cref="_cpuSamples"/> dictionary access access but
+        /// only works for <see cref="_threadStaticMonitor"/>
+        /// </summary>
+        [ System.ThreadStatic ]
+        static ThreadSampleCollection _threadStaticCollection;
+        /// <summary> Owner of <see cref="_threadStaticCollection"/> </summary>
+        static PerfMonitor _threadStaticMonitor;
+        
         // Xenko-specific data
         List<(ProfilingKey key, TemporaryXenkoSample sample)> _bufferedEvents = new List<(ProfilingKey, TemporaryXenkoSample)>();
         List<SampleInstance> _gpuSamples = new List<SampleInstance>();
@@ -84,6 +93,8 @@ namespace XenkoCommunity.ImGuiDebug
         {
             if( IsXenkoProfilingAll() )
                 Profiler.DisableAll();
+            if( _threadStaticMonitor == this )
+                _threadStaticMonitor = null;
         }
         
         
@@ -287,6 +298,8 @@ namespace XenkoCommunity.ImGuiDebug
         {
             using( Sample( $"{nameof(PerfSampler)}:{nameof(EndFrame)}" ) )
             {
+                if( _threadStaticMonitor == null )
+                    _threadStaticMonitor = this;
                 bool isPaused = PauseEval;
                 using( Sample( $"{nameof(PerfSampler)}:XenkoProfilerParsing" ) )
                 { // Manage xenko-specific profiler events
@@ -557,11 +570,13 @@ namespace XenkoCommunity.ImGuiDebug
             readonly bool _valid;
             readonly ThreadSampleCollection _target;
             
-            
             public PerfSampler(string id, PerfMonitor monitor)
             {
                 _id = id;
-                _target = Guaranteed( monitor._cpuSamples, Thread.CurrentThread );
+                // Cache as ThreadStatic to remove most dictionary access
+                if( _threadStaticCollection == null || _threadStaticMonitor != monitor )
+                    _threadStaticCollection = Guaranteed( monitor._cpuSamples, Thread.CurrentThread );
+                _target = _threadStaticCollection;
                 _depth = _target.Depth;
                 _target.Depth++;
                 
