@@ -30,11 +30,7 @@ namespace XenkoCommunity.ImGuiDebug
             BeginTooltip();
             return new DisposableImGui( true, DisposableTypes.Tooltip );
         }
-        public static DisposableImGui<float> UIndent( float size = 0f )
-        {
-            Indent(size);
-            return new DisposableImGui<float>( true, DisposableTypes.Indentation, size );
-        }
+        public static DisposableImGuiIndent UIndent( float size = 0f ) => new DisposableImGuiIndent( size );
         public static DisposableImGui UColumns( int count, string id = null, bool border = false )
         {
             Columns( count, id, border );
@@ -56,17 +52,20 @@ namespace XenkoCommunity.ImGuiDebug
         public static DisposableImGui Menu(string label, out bool open, bool enabled = true) => new DisposableImGui(open = BeginMenu(label, enabled), DisposableTypes.Menu );
         
         
-        public struct DisposableImGui<T> : IDisposable
+        public struct DisposableImGuiIndent : IDisposable
         {
-            T _parameters;
-            DisposableImGui _innerObj;
+            float _size;
 
-            public DisposableImGui( bool dispose, DisposableTypes type, T parameters = default )
+            public DisposableImGuiIndent( float size = 0f )
             {
-                _parameters = parameters;
-                _innerObj = new DisposableImGui( dispose, type );
+                _size = size;
+                Indent( size );
             }
-            public void Dispose() => _innerObj.Dispose( _parameters );
+
+            public void Dispose()
+            {
+                Unindent(_size);
+            }
         }
         
         public struct DisposableImGui : IDisposable
@@ -82,11 +81,6 @@ namespace XenkoCommunity.ImGuiDebug
 
             public void Dispose()
             {
-                // Dummy object
-                Dispose(true);
-            }
-            public void Dispose<T>(T _parameters)
-            {
                 if( ! _dispose )
                     return;
                 
@@ -100,12 +94,6 @@ namespace XenkoCommunity.ImGuiDebug
                     case DisposableTypes.Columns: Columns(1); return;
                     case DisposableTypes.Combo: EndCombo(); return;
                     case DisposableTypes.ID: PopID(); return;
-                    case DisposableTypes.Indentation:
-                        if( _parameters is float f )
-                            Unindent(f);
-                        else
-                            Unindent();
-                        return;
                     default: throw new ArgumentOutOfRangeException();
                 }
             }
@@ -117,7 +105,6 @@ namespace XenkoCommunity.ImGuiDebug
             MenuBar,
             Child,
             Window,
-            Indentation,
             Tooltip,
             Columns,
             Combo,

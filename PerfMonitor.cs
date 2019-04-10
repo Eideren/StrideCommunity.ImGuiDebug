@@ -344,7 +344,7 @@ namespace XenkoCommunity.ImGuiDebug
                                 }
     
                                 // Process buffered messages to completion
-                                if( index is null )
+                                if( index == null )
                                     continue;
                                 
                                 Depth( eType )--;
@@ -446,7 +446,7 @@ namespace XenkoCommunity.ImGuiDebug
             for( int i = 0; i < _bufferedEvents.Count; i++ )
             {
                 ( ProfilingKey key, TemporaryXenkoSample tempSample ) = _bufferedEvents[ i ];
-                if( tempSample.Type != eType || tempSample.Duration is null )
+                if( tempSample.Type != eType || tempSample.Duration == null )
                     continue;
                 
                 var id = key.Name;
@@ -519,19 +519,15 @@ namespace XenkoCommunity.ImGuiDebug
                 default: throw new System.InvalidOperationException();
             }
         }
-        
-        /// <summary>
-        /// Format the given generic value to a string,
-        /// this is a shortcut to avoid implicit casting to object when string interpolation is used.
-        /// By default float-like values are formatted to a display friendly string.
-        /// </summary>
-        static string S<T>(T val, string format = null)
+
+        static string S( float val, string format = null )
         {
-            if( val is float f )
-                return f.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
-            if( val is double d )
-                return d.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
-            return val.ToString();
+            return val.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
+        }
+
+        static string S( double val, string format = null )
+        {
+            return val.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
         }
 
         static bool IsXenkoProfilingAll()
