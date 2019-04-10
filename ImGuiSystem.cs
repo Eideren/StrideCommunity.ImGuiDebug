@@ -53,19 +53,6 @@ namespace XenkoCommunity.ImGuiDebug
             effectSystem = Services.GetService<EffectSystem>();
             Debug.Assert(effectSystem != null, "ImGuiSystem: EffectSystem must be available!");
 
-            Initialize();
-            
-            Enabled = true; // Force Update functions to be run
-            Visible = true; // Force Draw related functions to be run
-            UpdateOrder = 1; // Update should occur after Xenko's InputManager
-
-            // Include this new instance into our services and systems so that xenko fires our functions automatically
-            Services.AddService(this);
-            Game.GameSystems.Add(this);
-        }
-
-        void Initialize()
-        {
             IntPtr c = ImGui.CreateContext();
             Debug.Assert(c != IntPtr.Zero, "ImGuiSystem: Failed Creating ImGui Context!");
             ImGui.SetCurrentContext(c);
@@ -78,6 +65,14 @@ namespace XenkoCommunity.ImGuiDebug
 
             // font stuff
             CreateFontTexture();
+            
+            Enabled = true; // Force Update functions to be run
+            Visible = true; // Force Draw related functions to be run
+            UpdateOrder = 1; // Update should occur after Xenko's InputManager
+
+            // Include this new instance into our services and systems so that xenko fires our functions automatically
+            Services.AddService(this);
+            Game.GameSystems.Add(this);
         }
 
         void SetupInput() 
