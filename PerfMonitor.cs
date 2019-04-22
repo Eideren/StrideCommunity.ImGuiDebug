@@ -63,6 +63,7 @@ namespace XenkoCommunity.ImGuiDebug
         protected override Vector2? WindowPos => new Vector2( 1f, 1f );
         protected override Vector2? WindowSize => _windowSize;
         Vector2? _windowSize = new Vector2( 420f, 240f );
+        PerfSampler? frame;
         
         
         
@@ -97,8 +98,18 @@ namespace XenkoCommunity.ImGuiDebug
 
 
 
-        public PerfMonitor( Xenko.Core.IServiceRegistry services ) : base( services ){ }
-        
+        public PerfMonitor( Xenko.Core.IServiceRegistry services ) : base( services )
+        {
+            Visible = true;
+            DrawOrder = int.MaxValue;
+        }
+
+        public override void EndDraw()
+        {
+            base.EndDraw();
+            EndFrame();
+        }
+
         protected override void OnDestroy()
         {
             if( IsXenkoProfilingAll() )
@@ -315,12 +326,18 @@ namespace XenkoCommunity.ImGuiDebug
         }
 
 
-        public void EndFrame()
+        void EndFrame()
         {
             using( Sample( $"{nameof(PerfSampler)}:{nameof(EndFrame)}" ) )
             {
                 if( _threadStaticMonitor == null )
                     _threadStaticMonitor = this;
+                if( frame == null )
+                    Guaranteed( _cpuSamples, Thread.CurrentThread ).Depth++;
+                else
+                    frame?.Dispose();
+                frame = new PerfSampler( "Frame", this, 0 );
+                
                 bool isPaused = PauseEval;
                 using( Sample( $"{nameof(PerfSampler)}:XenkoProfilerParsing" ) )
                 { // Manage xenko-specific profiler events
@@ -593,16 +610,25 @@ namespace XenkoCommunity.ImGuiDebug
             readonly long? _mem;
             #endif
             readonly ThreadSampleCollection _target;
+            readonly bool _customDepth;
 
-            public PerfSampler( string id, PerfMonitor monitor )
+            public PerfSampler( string id, PerfMonitor monitor, int customDepthParam = -1 )
             {
                 _id = id;
                 // Cache as ThreadStatic to remove most dictionary access
                 if( _threadStaticCollection == null || _threadStaticMonitor != monitor )
                     _threadStaticCollection = Guaranteed( monitor._cpuSamples, Thread.CurrentThread );
                 _target = _threadStaticCollection;
-                _depth = _target.Depth;
-                _target.Depth++;
+                _customDepth = customDepthParam >= 0;
+                if( _customDepth )
+                {
+                    _depth = customDepthParam;
+                }
+                else
+                {
+                    _depth = _target.Depth;
+                    _target.Depth++;
+                }
                 
                 _timer = LightweightTimer.StartNew();
                 
@@ -629,7 +655,8 @@ namespace XenkoCommunity.ImGuiDebug
                         deltaMem = System.GC.GetAllocatedBytesForCurrentThread() - _mem.Value;
                 #endif
                 var sampleInstance = new SampleInstance( _id, _depth, start, ms, deltaMem );
-                _target.Depth--;
+                if( _customDepth == false )
+                    _target.Depth--;
                 _target.Add( sampleInstance );
             }
         }
