@@ -1,6 +1,9 @@
+#if NET48 || NETCOREAPP
+#define GC_THREADMEM_SUPPORT
+#endif
+
 namespace XenkoCommunity.ImGuiDebug
 {
-    using Xenko.Core;
     using Xenko.Core.Diagnostics;
     
     using System.Collections.Generic;
@@ -19,6 +22,9 @@ namespace XenkoCommunity.ImGuiDebug
         public float FrameHeight = 128;
         public bool PauseEval;
         public bool PauseOnLargeDelta;
+        #if GC_THREADMEM_SUPPORT
+        public bool MonitorSampleAlloc;
+        #endif
         
         // Work agnostic data
         Dictionary<Thread, ThreadSampleCollection> _cpuSamples = new Dictionary<Thread, ThreadSampleCollection>();
@@ -67,7 +73,11 @@ namespace XenkoCommunity.ImGuiDebug
         
         
         
-        /// <summary> Place within a using statement to monitor the code within it </summary>
+        /// <summary>
+        /// Place within a using statement to monitor the code within it.
+        /// Creates a string each call which will produces unneeded garbage,
+        /// see <see cref="Sample(string, bool)"/> for alloc less version.
+        /// </summary>
         public PerfSampler Sample(
             bool sample = true,
             [ CallerLineNumber ] int    line     = 0,
@@ -87,7 +97,7 @@ namespace XenkoCommunity.ImGuiDebug
 
 
 
-        public PerfMonitor( IServiceRegistry services ) : base( services ){ }
+        public PerfMonitor( Xenko.Core.IServiceRegistry services ) : base( services ){ }
         
         protected override void OnDestroy()
         {
@@ -126,8 +136,13 @@ namespace XenkoCommunity.ImGuiDebug
             {
                 Checkbox( "Pause", ref PauseEval );
                 NextColumn();
-                Checkbox( "Pause on large delta", ref PauseOnLargeDelta );
+                Checkbox( "on large delta", ref PauseOnLargeDelta );
             }
+            #if GC_THREADMEM_SUPPORT
+                Checkbox( "Monitor Sample Alloc", ref MonitorSampleAlloc );
+            #else
+                TextUnformatted( "Latest .net required to monitor alloc" );
+            #endif
             
             int sampleSize = _graph.Length;
             InputInt( "Sample Size", ref sampleSize );
@@ -289,8 +304,14 @@ namespace XenkoCommunity.ImGuiDebug
             SetCursorPos( corner + new Vector2(pos, sample.Depth * height) );
             Button( sample.Id, new Vector2( size, height ) );
             if( IsItemHovered() )
+            {
                 using( Tooltip() )
-                    TextUnformatted($"{sample.Id}:\n{S(sample.Duration)}ms");
+                {
+                    TextUnformatted( sample.DeltaMemAlloc.HasValue
+                        ? $"{sample.Id}:\n{S( sample.Duration )}ms\n{Ts( sample.DeltaMemAlloc )} byte(s)"
+                        : $"{sample.Id}:\n{S( sample.Duration )}ms" );
+                }
+            }
         }
 
 
@@ -450,7 +471,7 @@ namespace XenkoCommunity.ImGuiDebug
                     continue;
                 
                 var id = key.Name;
-                var sample = new SampleInstance( id, tempSample.Depth, tempSample.Start.Value, tempSample.Duration.Value.TotalMilliseconds );
+                var sample = new SampleInstance( id, tempSample.Depth, tempSample.Start.Value, tempSample.Duration.Value.TotalMilliseconds, null );
                 receiver.Add( sample );
                 
                 TimeSpan cMin = tempSample.Start.Value;
@@ -529,6 +550,10 @@ namespace XenkoCommunity.ImGuiDebug
         {
             return val.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
         }
+        static string Ts<T>( T val )
+        {
+            return val.ToString();
+        }
 
         static bool IsXenkoProfilingAll()
         {
@@ -564,9 +589,10 @@ namespace XenkoCommunity.ImGuiDebug
             readonly string _id;
             readonly int _depth;
             readonly bool _valid;
+            readonly long? _mem;
             readonly ThreadSampleCollection _target;
-            
-            public PerfSampler(string id, PerfMonitor monitor)
+
+            public PerfSampler( string id, PerfMonitor monitor )
             {
                 _id = id;
                 // Cache as ThreadStatic to remove most dictionary access
@@ -577,6 +603,13 @@ namespace XenkoCommunity.ImGuiDebug
                 _target.Depth++;
                 
                 _timer = LightweightTimer.StartNew();
+                
+                _mem = null;
+                #if GC_THREADMEM_SUPPORT
+                    if( monitor.MonitorSampleAlloc )
+                        _mem = System.GC.GetAllocatedBytesForCurrentThread();
+                #endif
+                
                 _valid = true;
             }
             /// <summary> Dispose of it to log it to the PerfMonitor </summary>
@@ -587,8 +620,13 @@ namespace XenkoCommunity.ImGuiDebug
                 
                 TimeSpan start = _timer.InitTime;
                 double ms = _timer.Elapsed.TotalMilliseconds;
-                        
-                var sampleInstance = new SampleInstance( _id, _depth, start, ms );
+                
+                long? deltaMem = null;
+                #if GC_THREADMEM_SUPPORT
+                    if( _mem.HasValue )
+                        deltaMem = System.GC.GetAllocatedBytesForCurrentThread() - _mem.Value;
+                #endif
+                var sampleInstance = new SampleInstance( _id, _depth, start, ms, deltaMem );
                 _target.Depth--;
                 _target.Add( sampleInstance );
             }
@@ -705,13 +743,15 @@ namespace XenkoCommunity.ImGuiDebug
             public readonly int Depth;
             public readonly TimeSpan Start;
             public readonly double Duration;
+            public readonly long? DeltaMemAlloc;
 
-            public SampleInstance(string id, int depth, TimeSpan start, double duration)
+            public SampleInstance(string id, int depth, TimeSpan start, double duration, long? deltaMemAlloc)
             {
                 Id = id;
                 Depth = depth;
                 Start = start;
                 Duration = duration;
+                DeltaMemAlloc = deltaMemAlloc;
             }
         }
         
