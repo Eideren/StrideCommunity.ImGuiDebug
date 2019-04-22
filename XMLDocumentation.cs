@@ -4,8 +4,8 @@ namespace XenkoCommunity.ImGuiDebug
     using System.Collections.Concurrent;
     using System.IO;
     using System.Reflection;
-    using System.Web;
     using System.Xml;
+    using WebUtility = System.Net.WebUtility;
 
     /// <summary>
     /// Utility class to provide documentation for various types where available with the assembly
@@ -160,7 +160,7 @@ namespace XenkoCommunity.ImGuiDebug
                     return "";
 
                 // Decodes xml entities like '&amp;'
-                rawString = HttpUtility.HtmlDecode( rawString );
+                rawString = WebUtility.HtmlDecode( rawString );
                 rawString = rawString.Replace( "<see cref=", "" ).Replace( "/>", "" );
 
                 // cleanup tabs and spaces on new line
