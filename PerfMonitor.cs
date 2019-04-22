@@ -589,7 +589,9 @@ namespace XenkoCommunity.ImGuiDebug
             readonly string _id;
             readonly int _depth;
             readonly bool _valid;
+            #if GC_THREADMEM_SUPPORT
             readonly long? _mem;
+            #endif
             readonly ThreadSampleCollection _target;
 
             public PerfSampler( string id, PerfMonitor monitor )
@@ -604,8 +606,8 @@ namespace XenkoCommunity.ImGuiDebug
                 
                 _timer = LightweightTimer.StartNew();
                 
-                _mem = null;
                 #if GC_THREADMEM_SUPPORT
+                    _mem = null;
                     if( monitor.MonitorSampleAlloc )
                         _mem = System.GC.GetAllocatedBytesForCurrentThread();
                 #endif

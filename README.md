@@ -8,7 +8,13 @@ Bare-bone implementation of ImGui and a couple of debug tools for Xenko
 ### How to:
 * Add this repo as a submodule of your game's repo.
 * Add a project reference pointing to this project inside your game's .csproj.
-* Reference ImGui.NET's nuget package in your game's project.
+* Reference ImGui.NET's nuget package in your game's project, see below.
+	* Optional: ``SetTargetFramework`` will specify the target framework when building, setting it to Core 2.0+ or Framework 4.8+ will allow you to monitor heap allocations within your samples, if you don't need that you can safely remove that line.
+```xml
+<ProjectReference Include="..\XenkoCommunity.ImGuiDebug\XenkoCommunity.ImGuiDebug.csproj" >
+	<SetTargetFramework>TargetFramework=--yourDotNetFrameworkHere--</SetTargetFramework>
+</ProjectReference>
+```
 * Start ImGui within your game's BeginRun():
 ```cs
 using XenkoCommunity.ImGuiDebug;
