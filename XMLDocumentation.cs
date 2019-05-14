@@ -17,7 +17,7 @@ namespace XenkoCommunity.ImGuiDebug
 
         static bool TryGetDocumentation( MemberInfo member, out CachedDocumentation documentation )
         {
-            if( _documentation.TryGetValue( member, out documentation ) is false )
+            if( _documentation.TryGetValue( member, out documentation ) == false )
             {
                 Assembly assembly;
                 if( member is Type t )
@@ -25,7 +25,7 @@ namespace XenkoCommunity.ImGuiDebug
                 else
                     assembly = member.DeclaringType.Assembly;
 
-                if( _documents.TryGetValue( assembly, out XmlDocument document ) is false )
+                if( _documents.TryGetValue( assembly, out XmlDocument document ) == false )
                 {
                     var filepath = assembly.CodeBase;
 
