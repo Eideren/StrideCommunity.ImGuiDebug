@@ -319,7 +319,7 @@ namespace XenkoCommunity.ImGuiDebug
                 using( Tooltip() )
                 {
                     TextUnformatted( sample.DeltaMemAlloc.HasValue
-                        ? $"{sample.Id}:\n{S( sample.Duration )}ms\n{Ts( sample.DeltaMemAlloc )} byte(s)"
+                        ? $"{sample.Id}:\n{S( sample.Duration )}ms - {Ts( sample.DeltaMemAlloc )} byte(s)"
                         : $"{sample.Id}:\n{S( sample.Duration )}ms" );
                 }
             }
@@ -560,12 +560,12 @@ namespace XenkoCommunity.ImGuiDebug
 
         static string S( float val, string format = null )
         {
-            return val.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
+            return val.ToString( format ?? "F2", System.Globalization.CultureInfo.CurrentCulture );
         }
 
         static string S( double val, string format = null )
         {
-            return val.ToString( format ?? "F1", System.Globalization.CultureInfo.CurrentCulture );
+            return val.ToString( format ?? "F2", System.Globalization.CultureInfo.CurrentCulture );
         }
         static string Ts<T>( T val )
         {
