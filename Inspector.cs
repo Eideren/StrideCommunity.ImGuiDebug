@@ -766,9 +766,13 @@ namespace XenkoCommunity.ImGuiDebug
             /// <summary> Reflection doesn't provide private inherited fields for some reason, this resolves that issue </summary>
             static IEnumerable<MemberInfo> GetAllMembers( Type t )
             {
+                foreach( MemberInfo member in t.GetMembers( BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static ) )
+                {
+                    yield return member;
+                }
                 while( t != null )
                 {
-                    foreach( MemberInfo member in t.GetMembers(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly) )
+                    foreach( MemberInfo member in t.GetMembers( BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly) )
                     {
                         yield return member;
                     }
