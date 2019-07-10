@@ -592,7 +592,7 @@ namespace XenkoCommunity.ImGuiDebug
             if( valueType == typeof(ushort) ) return (ulong)(ushort)enumValue;
             if( valueType == typeof(byte) ) return (ulong)(byte)enumValue;
             if( valueType == typeof(sbyte) ) return (ulong)(sbyte)enumValue;
-            throw new InvalidOperationException();
+            throw new ArgumentException( valueType.ToString() );
         }
 
         static object GetEnumValueFromBits( ulong bits, Type enumType )
@@ -609,7 +609,7 @@ namespace XenkoCommunity.ImGuiDebug
                 if( valueType == typeof(byte) ) return (byte)bits;
                 if( valueType == typeof(sbyte) ) return (sbyte)bits;
             }
-            throw new InvalidOperationException();
+            throw new ArgumentException( enumType.ToString() );
         }
 
         static float RelativeDragSpeed( in float currentValue )

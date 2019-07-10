@@ -520,12 +520,10 @@ namespace XenkoCommunity.ImGuiDebug
         {
             switch( pet )
             {
-                case ProfilingEventType.CpuProfilingEvent:
-                    return Xenko.Core.Utilities.ConvertRawToTimestamp( ticks );
-                case ProfilingEventType.GpuProfilingEvent: // Lifted from xenko's code base
-                    return new TimeSpan((ticks * 10000000) / GraphicsDevice.TimestampFrequency);
-                default:
-                    throw new System.InvalidOperationException();
+                case ProfilingEventType.CpuProfilingEvent: return Xenko.Core.Utilities.ConvertRawToTimestamp( ticks );
+                // Lifted from xenko's code base
+                case ProfilingEventType.GpuProfilingEvent: return new TimeSpan((ticks * 10000000) / GraphicsDevice.TimestampFrequency);
+                default: throw new System.ArgumentException( pet.ToString() );
             }
         }
         
@@ -535,7 +533,7 @@ namespace XenkoCommunity.ImGuiDebug
             {
                 case ProfilingEventType.CpuProfilingEvent: return ref _xenkoDepth;
                 case ProfilingEventType.GpuProfilingEvent: return ref _gpuDepth;
-                default: throw new System.InvalidOperationException();
+                default: throw new System.ArgumentException( type.ToString() );
             }
         }
         ref ( TimeSpan start, double ms ) Frames( ProfilingEventType type )
@@ -544,7 +542,7 @@ namespace XenkoCommunity.ImGuiDebug
             {
                 case ProfilingEventType.CpuProfilingEvent: return ref _xenkoFrame;
                 case ProfilingEventType.GpuProfilingEvent: return ref _gpuFrame;
-                default: throw new System.InvalidOperationException();
+                default: throw new System.ArgumentException( type.ToString() );
             }
         }
 
@@ -554,7 +552,7 @@ namespace XenkoCommunity.ImGuiDebug
             {
                 case ProfilingEventType.CpuProfilingEvent: return _xenkoSamples;
                 case ProfilingEventType.GpuProfilingEvent: return _gpuSamples;
-                default: throw new System.InvalidOperationException();
+                default: throw new System.ArgumentException( type.ToString() );
             }
         }
 
