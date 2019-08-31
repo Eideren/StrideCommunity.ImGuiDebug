@@ -36,9 +36,9 @@ namespace XenkoCommunity.ImGuiDebug
         EffectInstance imShader;
         Texture fontTexture;
 
-        public ImGuiSystem([NotNull] IServiceRegistry registry, [NotNull] GraphicsDeviceManager graphicsDeviceManager) : base(registry) 
+        public ImGuiSystem([NotNull] IServiceRegistry registry, [NotNull] GraphicsDeviceManager graphicsDeviceManager, InputManager inputManager = null) : base(registry) 
         {
-            input = Services.GetService<InputManager>();
+            input = inputManager ?? Services.GetService<InputManager>();
             Debug.Assert(input != null, "ImGuiSystem: InputManager must be available!");
 
             deviceManager = graphicsDeviceManager;

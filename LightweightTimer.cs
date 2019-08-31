@@ -15,7 +15,10 @@ namespace XenkoCommunity.ImGuiDebug
             _ts = Stopwatch.GetTimestamp();
         }
         
-        /// <summary> Use this function and its return value when inside a loop instead of <see cref="Elapsed"/> as it guarantees that no time will be discarded </summary>
+        /// <summary>
+        /// Use this function and its return value when inside a loop instead of <see cref="Elapsed"/>
+        /// as it guarantees that no time will be discarded
+        /// </summary>
         public TimeSpan Restart()
         {
             long now = Stopwatch.GetTimestamp();

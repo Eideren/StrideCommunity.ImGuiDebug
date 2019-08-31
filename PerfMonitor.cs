@@ -130,7 +130,7 @@ namespace XenkoCommunity.ImGuiDebug
         
         
         Vector2 GetGraphSize() => new Vector2(MaxWidth(), GraphHeight);
-        float MaxWidth() => GetContentRegionAvailWidth();
+        float MaxWidth() => GetContentRegionAvail().X;
 
         protected override void OnDraw( bool collapsed )
         {
@@ -254,7 +254,7 @@ namespace XenkoCommunity.ImGuiDebug
                         }
                     }
     
-                    var buttonSize = new Vector2( GetContentRegionAvailWidth(), GetTextLineHeightWithSpacing() );
+                    var buttonSize = new Vector2( GetContentRegionAvail().X, GetTextLineHeightWithSpacing() );
                     bool profiling = IsXenkoProfilingAll();
                     if( Button( profiling ? "Stop Profiling" : "Profile Xenko", buttonSize ) )
                     {

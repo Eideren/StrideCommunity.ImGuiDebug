@@ -477,7 +477,7 @@ namespace XenkoCommunity.ImGuiDebug
                     }
                 }
                 // Prepare an add to the dictionary: create an editable instance for key and value
-                else if( Button( "+", new Vector2( GetContentRegionAvailWidth(), GetTextLineHeightWithSpacing() ) ) )
+                else if( Button( "+", new Vector2( GetContentRegionAvail().X, GetTextLineHeightWithSpacing() ) ) )
                 {
                     _dicAddCommandData = ( GetTypeData(data.key).NewObject(), GetTypeData(data.value).NewObject() );
                     _dicAddCommandTarget.SetTarget( target );
@@ -545,7 +545,7 @@ namespace XenkoCommunity.ImGuiDebug
                 }
 
                 // Calling 'Add(ObjectType object)'
-                if( Button( "+", new Vector2( GetContentRegionAvailWidth(), GetTextLineHeightWithSpacing() ) ) )
+                if( Button( "+", new Vector2( GetContentRegionAvail().X, GetTextLineHeightWithSpacing() ) ) )
                 {
                     var valueType = typeData.AsList;
                     var value = GetTypeData(typeData.AsList).NewObject();
