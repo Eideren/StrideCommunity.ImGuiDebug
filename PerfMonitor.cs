@@ -244,7 +244,7 @@ namespace XenkoCommunity.ImGuiDebug
                     {
                         var thread = data.Key;
                         var samples = data.Value.Displayed;
-                        if( CollapsingHeader( thread.Name ) == false )
+                        if( CollapsingHeader( thread.Name ?? "unnamed" ) == false )
                             continue;
                         // Child() to properly align content within
                         using( Child(size:new Vector2(0f, FrameHeight)) )
