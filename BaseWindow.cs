@@ -61,10 +61,9 @@ namespace XenkoCommunity.ImGuiDebug
 
             if( Open == false )
             {
+                Enabled = false;
                 Game.GameSystems.Remove( this );
                 Dispose();
-                #warning Doesn't properly get removed from the list of update-executing systems, need to investigate, forced to do this for now
-                Enabled = false;
             }
         }
         protected abstract void OnDraw( bool collapsed );
