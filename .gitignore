@@ -8,7 +8,10 @@ _ReSharper*
 *.vshost.exe
 *.manifest
 *.sdf
-*\[Bb]in/
-*\[Bb]in_*/
 *\obj/
 *\imgui.ini
+*\.idea/
+*\bin/
+*\Bin/
+*\bin_*/
+*\Bin_*/
