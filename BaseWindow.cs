@@ -1,5 +1,6 @@
 namespace XenkoCommunity.ImGuiDebug
 {
+    using System.Collections.Generic;
     using Xenko.Core;
     using Xenko.Engine;
     using Xenko.Games;
@@ -11,8 +12,7 @@ namespace XenkoCommunity.ImGuiDebug
     
     public abstract class BaseWindow : GameSystem
     {
-        static object _idLock = new object();
-        static uint _windowId;
+        static Dictionary<string, uint> _windowId = new Dictionary<string, uint>();
         
         protected bool Open = true;
         protected uint Id;
@@ -26,12 +26,20 @@ namespace XenkoCommunity.ImGuiDebug
         {
             Game.GameSystems.Add(this);
             Enabled = true;
-            lock( _idLock )
+            var n = GetType().Name;
+            lock( _windowId )
             {
-                Id = _windowId++;
+                if( _windowId.TryGetValue( n, out var idOffset ) == false )
+                {
+                    idOffset = 1;
+                    _windowId.Add( n, idOffset );
+                }
+
+                _windowId[ n ] = idOffset + 1;
+                Id = idOffset;
             }
             // IDs could be per type / name collision instead
-            _uniqueName = $"{GetType().Name}({Id})";
+            _uniqueName = Id == 1 ? n : $"{n}({Id})";
         }
 
         public override void Update( GameTime gameTime )
@@ -62,7 +70,6 @@ namespace XenkoCommunity.ImGuiDebug
             if( Open == false )
             {
                 Enabled = false;
-                Game.GameSystems.Remove( this );
                 Dispose();
             }
         }
@@ -71,6 +78,7 @@ namespace XenkoCommunity.ImGuiDebug
 
         protected override void Destroy()
         {
+            Game.GameSystems.Remove( this );
             OnDestroy();
             base.Destroy();
         }
