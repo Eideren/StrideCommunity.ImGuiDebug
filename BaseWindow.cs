@@ -29,16 +29,14 @@ namespace XenkoCommunity.ImGuiDebug
             var n = GetType().Name;
             lock( _windowId )
             {
-                if( _windowId.TryGetValue( n, out var idOffset ) == false )
+                if( _windowId.TryGetValue( n, out Id ) == false )
                 {
-                    idOffset = 1;
-                    _windowId.Add( n, idOffset );
+                    Id = 1;
+                    _windowId.Add( n, Id );
                 }
 
-                _windowId[ n ] = idOffset + 1;
-                Id = idOffset;
+                _windowId[ n ] = Id + 1;
             }
-            // IDs could be per type / name collision instead
             _uniqueName = Id == 1 ? n : $"{n}({Id})";
         }
 
