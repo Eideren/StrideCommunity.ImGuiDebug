@@ -4,17 +4,17 @@
 
 
 
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
-	using Xenko.Core.Diagnostics;
+	using Stride.Core.Diagnostics;
 	using System.Collections.Generic;
 	using System.Runtime.CompilerServices;
 	using System.Numerics;
 	using Thread = System.Threading.Thread;
 	using TimeSpan = System.TimeSpan;
 	using ImGuiNET;
-	using Xenko.Engine;
-	using Xenko.Games;
+	using Stride.Engine;
+	using Stride.Games;
 	using static ImGuiNET.ImGui;
 	using static ImGuiExtension;
 
@@ -49,12 +49,12 @@ namespace XenkoCommunity.ImGuiDebug
 		LightweightTimer _timer = LightweightTimer.StartNew();
 		(TimeSpan start, double duration) _cpuFrame;
 
-		// Xenko-specific data
-		List<(ProfilingKey key, TemporaryXenkoSample sample)> _bufferedEvents = new List<(ProfilingKey, TemporaryXenkoSample)>();
+		// Stride-specific data
+		List<(ProfilingKey key, TemporaryStrideSample sample)> _bufferedEvents = new List<(ProfilingKey, TemporaryStrideSample)>();
 		List<SampleInstance> _gpuSamples = new List<SampleInstance>();
-		List<SampleInstance> _xenkoSamples = new List<SampleInstance>();
-		(TimeSpan start, double duration) _gpuFrame, _xenkoFrame;
-		int _gpuDepth, _xenkoDepth;
+		List<SampleInstance> _strideSamples = new List<SampleInstance>();
+		(TimeSpan start, double duration) _gpuFrame, _strideFrame;
+		int _gpuDepth, _strideDepth;
 
 		GraphPoint _graphAggregated;
 		GraphPoint[] _graph = new GraphPoint[ 256 ];
@@ -135,7 +135,7 @@ namespace XenkoCommunity.ImGuiDebug
 
 
 
-		public PerfMonitor( Xenko.Core.IServiceRegistry services ) : base( services )
+		public PerfMonitor( Stride.Core.IServiceRegistry services ) : base( services )
 		{
 			Visible = true;
 			DrawOrder = int.MaxValue;
@@ -148,7 +148,7 @@ namespace XenkoCommunity.ImGuiDebug
 
 		protected override void OnDestroy()
 		{
-			if( IsXenkoProfilingAll() )
+			if( IsStrideProfilingAll() )
 				Profiler.DisableAll();
 			if( _threadStaticMonitor == this )
 				_threadStaticMonitor = null;
@@ -302,8 +302,8 @@ namespace XenkoCommunity.ImGuiDebug
 					}
 
 					var buttonSize = new Vector2( GetContentRegionAvail().X, GetTextLineHeightWithSpacing() );
-					bool profiling = IsXenkoProfilingAll();
-					if( Button( profiling ? "Stop Profiling" : "Profile Xenko", buttonSize ) )
+					bool profiling = IsStrideProfilingAll();
+					if( Button( profiling ? "Stop Profiling" : "Profile Stride", buttonSize ) )
 					{
 						if( profiling )
 							Profiler.DisableAll();
@@ -323,14 +323,14 @@ namespace XenkoCommunity.ImGuiDebug
 						}
 					}
 
-					// Xenko Systems
-					if( CollapsingHeader( _xenkoSamples.Count != 0 ? "Xenko Systems" : "Xenko Systems (profiling is off)" ) )
+					// Stride Systems
+					if( CollapsingHeader( _strideSamples.Count != 0 ? "Stride Systems" : "Stride Systems (profiling is off)" ) )
 					{
 						// Child() to properly align content within
 						using( Child( size: new Vector2( 0f, FrameHeight ) ) )
 						{
-							foreach( var data in _xenkoSamples )
-								DrawSample( default, MaxWidth(), data, _xenkoFrame.start, _xenkoFrame.duration );
+							foreach( var data in _strideSamples )
+								DrawSample( default, MaxWidth(), data, _strideFrame.start, _strideFrame.duration );
 						}
 					}
 				}
@@ -389,10 +389,10 @@ namespace XenkoCommunity.ImGuiDebug
 				_frame = new PerfSampler( "Frame", this, 0 );
 
 				bool isPaused = PauseEval;
-				using( Sample( $"{nameof( PerfSampler )}:XenkoProfilerParsing" ) )
+				using( Sample( $"{nameof( PerfSampler )}:StrideProfilerParsing" ) )
 				{
-					// Manage xenko-specific profiler events
-					// aggregate any buffered xenko events, complete them if paused
+					// Manage stride-specific profiler events
+					// aggregate any buffered stride events, complete them if paused
 					foreach( var eType in PROFILING_EVENT_TYPES )
 					{
 						// Consume events even if we are paused as the queue doesn't
@@ -407,7 +407,7 @@ namespace XenkoCommunity.ImGuiDebug
 							{
 								if( isPaused )
 									continue;
-								TemporaryXenkoSample txs = new TemporaryXenkoSample
+								TemporaryStrideSample txs = new TemporaryStrideSample
 								{
 									Start = ComputeAccurateTimespan( perfEvent.TimeStamp, eType ),
 									Type = eType,
@@ -443,7 +443,7 @@ namespace XenkoCommunity.ImGuiDebug
 
 								// All events started and ended
 								if( Depth( eType ) == 0 )
-									PushXenkoFrame( eType );
+									PushStrideFrame( eType );
 							}
 							else
 								continue;
@@ -494,7 +494,7 @@ namespace XenkoCommunity.ImGuiDebug
 
 
 
-		void PushXenkoFrame( ProfilingEventType eType )
+		void PushStrideFrame( ProfilingEventType eType )
 		{
 			var receiver = Receiver( eType );
 			// Clear past frames
@@ -503,7 +503,7 @@ namespace XenkoCommunity.ImGuiDebug
 			TimeSpan min = TimeSpan.MaxValue, max = TimeSpan.MinValue;
 			for( int i = 0; i < _bufferedEvents.Count; i++ )
 			{
-				( ProfilingKey key, TemporaryXenkoSample tempSample ) = _bufferedEvents[ i ];
+				( ProfilingKey key, TemporaryStrideSample tempSample ) = _bufferedEvents[ i ];
 				if( tempSample.Type != eType || tempSample.Duration == null )
 					continue;
 
@@ -533,8 +533,8 @@ namespace XenkoCommunity.ImGuiDebug
 		{
 			switch( pet )
 			{
-				case ProfilingEventType.CpuProfilingEvent: return Xenko.Core.Utilities.ConvertRawToTimestamp( ticks );
-				// Lifted from xenko's code base
+				case ProfilingEventType.CpuProfilingEvent: return Stride.Core.Utilities.ConvertRawToTimestamp( ticks );
+				// Lifted from stride's code base
 				case ProfilingEventType.GpuProfilingEvent: return new TimeSpan( ( ticks * 10000000 ) / GraphicsDevice.TimestampFrequency );
 				default: throw new System.ArgumentException( pet.ToString() );
 			}
@@ -546,7 +546,7 @@ namespace XenkoCommunity.ImGuiDebug
 		{
 			switch( type )
 			{
-				case ProfilingEventType.CpuProfilingEvent: return ref _xenkoDepth;
+				case ProfilingEventType.CpuProfilingEvent: return ref _strideDepth;
 				case ProfilingEventType.GpuProfilingEvent: return ref _gpuDepth;
 				default: throw new System.ArgumentException( type.ToString() );
 			}
@@ -558,7 +558,7 @@ namespace XenkoCommunity.ImGuiDebug
 		{
 			switch( type )
 			{
-				case ProfilingEventType.CpuProfilingEvent: return ref _xenkoFrame;
+				case ProfilingEventType.CpuProfilingEvent: return ref _strideFrame;
 				case ProfilingEventType.GpuProfilingEvent: return ref _gpuFrame;
 				default: throw new System.ArgumentException( type.ToString() );
 			}
@@ -570,7 +570,7 @@ namespace XenkoCommunity.ImGuiDebug
 		{
 			switch( type )
 			{
-				case ProfilingEventType.CpuProfilingEvent: return _xenkoSamples;
+				case ProfilingEventType.CpuProfilingEvent: return _strideSamples;
 				case ProfilingEventType.GpuProfilingEvent: return _gpuSamples;
 				default: throw new System.ArgumentException( type.ToString() );
 			}
@@ -599,7 +599,7 @@ namespace XenkoCommunity.ImGuiDebug
 
 
 
-		static bool IsXenkoProfilingAll()
+		static bool IsStrideProfilingAll()
 		{
 			Profiler.Disable( _dummyKey );
 			// With the given disabled key this function will return true if EnableAll is set
@@ -829,8 +829,8 @@ namespace XenkoCommunity.ImGuiDebug
 
 
 
-		/// <summary> Object to hold Xenko's profiler samples until they are marked as done </summary>
-		struct TemporaryXenkoSample
+		/// <summary> Object to hold Stride's profiler samples until they are marked as done </summary>
+		struct TemporaryStrideSample
 		{
 			public ProfilingEventType Type;
 			public TimeSpan? Start;

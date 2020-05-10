@@ -1,9 +1,9 @@
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
     using System.Collections.Generic;
-    using Xenko.Core;
-    using Xenko.Engine;
-    using Xenko.Games;
+    using Stride.Core;
+    using Stride.Engine;
+    using Stride.Games;
     
     using System.Numerics;
     

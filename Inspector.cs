@@ -1,6 +1,6 @@
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
-    using Xenko.Core;
+    using Stride.Core;
     
     using System;
     using System.Linq;

@@ -1,12 +1,12 @@
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
-    using Xenko.Core;
-    using Xenko.Games;
-    using Xenko.Graphics;
-    using Xenko.Rendering;
-    using Xenko.Core.Mathematics;
-    using Xenko.Core.Annotations;
-    using Xenko.Input;
+    using Stride.Core;
+    using Stride.Games;
+    using Stride.Graphics;
+    using Stride.Rendering;
+    using Stride.Core.Mathematics;
+    using Stride.Core.Annotations;
+    using Stride.Input;
 
     using System;
     using System.Diagnostics;
@@ -68,9 +68,9 @@ namespace XenkoCommunity.ImGuiDebug
             
             Enabled = true; // Force Update functions to be run
             Visible = true; // Force Draw related functions to be run
-            UpdateOrder = 1; // Update should occur after Xenko's InputManager
+            UpdateOrder = 1; // Update should occur after Stride's InputManager
 
-            // Include this new instance into our services and systems so that xenko fires our functions automatically
+            // Include this new instance into our services and systems so that stride fires our functions automatically
             Services.AddService(this);
             Game.GameSystems.Add(this);
         }
@@ -180,11 +180,11 @@ namespace XenkoCommunity.ImGuiDebug
             imPipeline = pipelineState;
 
             var is32Bits = false;
-            var indexBuffer = Xenko.Graphics.Buffer.Index.New(device, INITIAL_INDEX_BUFFER_SIZE * sizeof(ushort), GraphicsResourceUsage.Dynamic);
+            var indexBuffer = Stride.Graphics.Buffer.Index.New(device, INITIAL_INDEX_BUFFER_SIZE * sizeof(ushort), GraphicsResourceUsage.Dynamic);
             var indexBufferBinding = new IndexBufferBinding(indexBuffer, is32Bits, 0);
             indexBinding = indexBufferBinding;
 
-            var vertexBuffer = Xenko.Graphics.Buffer.Vertex.New(device, INITIAL_VERTEX_BUFFER_SIZE * imVertLayout.CalculateSize(), GraphicsResourceUsage.Dynamic);
+            var vertexBuffer = Stride.Graphics.Buffer.Vertex.New(device, INITIAL_VERTEX_BUFFER_SIZE * imVertLayout.CalculateSize(), GraphicsResourceUsage.Dynamic);
             var vertexBufferBinding = new VertexBufferBinding(vertexBuffer, layout, 0);
             vertexBinding = vertexBufferBinding;
         }
@@ -257,7 +257,7 @@ namespace XenkoCommunity.ImGuiDebug
             
         }
         
-        public override bool BeginDraw() => true; // Tell xenko to execute EndDraw
+        public override bool BeginDraw() => true; // Tell stride to execute EndDraw
 
         public override void EndDraw()
         {
@@ -270,7 +270,7 @@ namespace XenkoCommunity.ImGuiDebug
             uint totalVBOSize = (uint)(drawData.TotalVtxCount * Unsafe.SizeOf<ImDrawVert>());
             if (totalVBOSize > vertexBinding.Buffer.SizeInBytes) 
             {
-                var vertexBuffer = Xenko.Graphics.Buffer.Vertex.New(device, (int)(totalVBOSize * 1.5f));
+                var vertexBuffer = Stride.Graphics.Buffer.Vertex.New(device, (int)(totalVBOSize * 1.5f));
                 vertexBinding = new VertexBufferBinding(vertexBuffer, imVertLayout, 0);
             }
 
@@ -278,7 +278,7 @@ namespace XenkoCommunity.ImGuiDebug
             if (totalIBOSize > indexBinding.Buffer.SizeInBytes) 
             {
                 var is32Bits = false;
-                var indexBuffer = Xenko.Graphics.Buffer.Index.New(device, (int)(totalIBOSize * 1.5f));
+                var indexBuffer = Stride.Graphics.Buffer.Index.New(device, (int)(totalIBOSize * 1.5f));
                 indexBinding = new IndexBufferBinding(indexBuffer, is32Bits, 0);
             }
         }

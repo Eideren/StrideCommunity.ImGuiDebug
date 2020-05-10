@@ -1,4 +1,4 @@
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
     
     using System.Numerics;

@@ -1,7 +1,7 @@
-XenkoCommunity.ImGuiDebug
+StrideCommunity.ImGuiDebug
 =====
 
-Bare-bone implementation of ImGui and a couple of debug tools for Xenko
+Bare-bone implementation of ImGui and a couple of debug tools for Stride
 
 ![](https://user-images.githubusercontent.com/5742236/55237373-563a1400-5232-11e9-8c24-beeaf127c0ac.png)
 
@@ -11,13 +11,13 @@ Bare-bone implementation of ImGui and a couple of debug tools for Xenko
 * Reference ImGui.NET's nuget package in your game's project, see below.
 	* Optional: ``SetTargetFramework`` will specify the target framework when building, setting it to Core 2.0+ or Framework 4.8+ will allow you to monitor heap allocations within your samples, if you don't need that you can safely remove that line.
 ```xml
-<ProjectReference Include="..\XenkoCommunity.ImGuiDebug\XenkoCommunity.ImGuiDebug.csproj" >
+<ProjectReference Include="..\StrideCommunity.ImGuiDebug\StrideCommunity.ImGuiDebug.csproj" >
 	<SetTargetFramework>TargetFramework=--yourDotNetFrameworkHere--</SetTargetFramework>
 </ProjectReference>
 ```
 * Start ImGui within your game's BeginRun():
 ```cs
-using XenkoCommunity.ImGuiDebug;
+using StrideCommunity.ImGuiDebug;
 protected override void BeginRun()
 {
     base.BeginRun();
@@ -36,15 +36,15 @@ Example interface implementation:
 ```cs
 using System.Numerics;
 using static ImGuiNET.ImGui;
-using static XenkoCommunity.ImGuiDebug.ImGuiExtension;
+using static StrideCommunity.ImGuiDebug.ImGuiExtension;
 
-public class YourInterface : XenkoCommunity.ImGuiDebug.BaseWindow
+public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
 {
     bool my_tool_active;
     Vector4 my_color;
     float[] my_values = { 0.2f, 0.1f, 1.0f, 0.5f, 0.9f, 2.2f };
 
-    public YourInterface( Xenko.Core.IServiceRegistry services ) : base( services )
+    public YourInterface( Stride.Core.IServiceRegistry services ) : base( services )
     {
     }
 

@@ -1,11 +1,11 @@
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
     using System.Numerics;
     using System.Collections.Generic;
     using Guid = System.Guid;
     
-    using Xenko.Core;
-    using Xenko.Engine;
+    using Stride.Core;
+    using Stride.Engine;
     
     using ImGuiNET;
     using static ImGuiNET.ImGui;

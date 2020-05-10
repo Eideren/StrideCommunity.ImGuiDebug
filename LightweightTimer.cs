@@ -1,4 +1,4 @@
-namespace XenkoCommunity.ImGuiDebug
+namespace StrideCommunity.ImGuiDebug
 {
     using System;
     using System.Diagnostics;
@@ -7,8 +7,8 @@ namespace XenkoCommunity.ImGuiDebug
     {
         long _ts;
         
-        public TimeSpan InitTime => Xenko.Core.Utilities.ConvertRawToTimestamp( _ts );
-        public TimeSpan Elapsed => Xenko.Core.Utilities.ConvertRawToTimestamp( Stopwatch.GetTimestamp() - _ts );
+        public TimeSpan InitTime => Stride.Core.Utilities.ConvertRawToTimestamp( _ts );
+        public TimeSpan Elapsed => Stride.Core.Utilities.ConvertRawToTimestamp( Stopwatch.GetTimestamp() - _ts );
 
         public void Start()
         {
@@ -22,7 +22,7 @@ namespace XenkoCommunity.ImGuiDebug
         public TimeSpan Restart()
         {
             long now = Stopwatch.GetTimestamp();
-            var delta = Xenko.Core.Utilities.ConvertRawToTimestamp( now - _ts );
+            var delta = Stride.Core.Utilities.ConvertRawToTimestamp( now - _ts );
             _ts = now;
             return delta;
         }
