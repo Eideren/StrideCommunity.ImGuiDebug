@@ -211,50 +211,51 @@ namespace StrideCommunity.ImGuiDebug
             io.DisplaySize = new System.Numerics.Vector2(surfaceSize.X, surfaceSize.Y);
             io.DisplayFramebufferScale = new System.Numerics.Vector2(1.0f, 1.0f);
             io.DeltaTime = (float)gameTime.TimePerFrame.TotalSeconds;
-
-            var mousePos = input.AbsoluteMousePosition;
-            io.MousePos = new System.Numerics.Vector2(mousePos.X, mousePos.Y);
-
-            if (io.WantTextInput) 
-            {
-                input.TextInput.EnabledTextInput();
-            } 
-            else 
-            {
-                input.TextInput.DisableTextInput();
-            }
-
-            // handle input events
-            foreach (InputEvent ev in input.Events) 
-            {
-                switch (ev) 
-                {
-                    case TextInputEvent tev:
-                        if (tev.Text == "\t") continue;
-                        io.AddInputCharactersUTF8(tev.Text);
-                        break;
-                    case KeyEvent kev:
-                        var keysDown = io.KeysDown;
-                        keysDown[(int)kev.Key] = kev.IsDown;
-                        break;
-                    case MouseWheelEvent mw:
-                        io.MouseWheel += mw.WheelDelta;
-                        break;
-                }
-            }
-
-            var mouseDown = io.MouseDown;
-            mouseDown[0] = input.IsMouseButtonDown(MouseButton.Left);
-            mouseDown[1] = input.IsMouseButtonDown(MouseButton.Right);
-            mouseDown[2] = input.IsMouseButtonDown(MouseButton.Middle);
-
-            io.KeyAlt = input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.LeftAlt);
-            io.KeyShift = input.IsKeyDown(Keys.LeftShift) || input.IsKeyDown(Keys.RightShift);
-            io.KeyCtrl = input.IsKeyDown(Keys.LeftCtrl) || input.IsKeyDown(Keys.RightCtrl);
-            io.KeySuper = input.IsKeyDown(Keys.LeftWin) || input.IsKeyDown(Keys.RightWin);
-
-            ImGui.NewFrame();
             
+            if( input.HasMouse == false || input.IsMousePositionLocked == false )
+            {
+                var mousePos = input.AbsoluteMousePosition;
+                io.MousePos = new System.Numerics.Vector2(mousePos.X, mousePos.Y);
+
+                if (io.WantTextInput) 
+                {
+                    input.TextInput.EnabledTextInput();
+                } 
+                else 
+                {
+                    input.TextInput.DisableTextInput();
+                }
+
+                // handle input events
+                foreach (InputEvent ev in input.Events) 
+                {
+                    switch (ev) 
+                    {
+                        case TextInputEvent tev:
+                            if (tev.Text == "\t") continue;
+                            io.AddInputCharactersUTF8(tev.Text);
+                            break;
+                        case KeyEvent kev:
+                            var keysDown = io.KeysDown;
+                            keysDown[(int)kev.Key] = kev.IsDown;
+                            break;
+                        case MouseWheelEvent mw:
+                            io.MouseWheel += mw.WheelDelta;
+                            break;
+                    }
+                }
+
+                var mouseDown = io.MouseDown;
+                mouseDown[0] = input.IsMouseButtonDown(MouseButton.Left);
+                mouseDown[1] = input.IsMouseButtonDown(MouseButton.Right);
+                mouseDown[2] = input.IsMouseButtonDown(MouseButton.Middle);
+
+                io.KeyAlt = input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.LeftAlt);
+                io.KeyShift = input.IsKeyDown(Keys.LeftShift) || input.IsKeyDown(Keys.RightShift);
+                io.KeyCtrl = input.IsKeyDown(Keys.LeftCtrl) || input.IsKeyDown(Keys.RightCtrl);
+                io.KeySuper = input.IsKeyDown(Keys.LeftWin) || input.IsKeyDown(Keys.RightWin);
+            }
+            ImGui.NewFrame();
         }
         
         public override bool BeginDraw() => true; // Tell stride to execute EndDraw
