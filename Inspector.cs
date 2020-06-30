@@ -373,12 +373,21 @@ namespace StrideCommunity.ImGuiDebug
                 Spacing();
                 TextDisabled( "As Enumerable" );
                 int index = 0;
-                foreach( object o in ienum )
+                try
                 {
-                    object o2 = o;
+                    foreach( object o in ienum )
+                    {
+                        object o2 = o;
+                        using( UIndent() )
+                            DrawValue( "-", ref o2, true, ( hashcodeSource, index ).GetHashCode() );
+                        index++;
+                    }
+                }
+                catch( Exception e )
+                {
+                    var str = (object)$"x Exception: {e.Message}";
                     using( UIndent() )
-                        DrawValue( "-", ref o2, true, ( hashcodeSource, index ).GetHashCode() );
-                    index++;
+                        DrawValue( "-", ref str, true, ( hashcodeSource, index ).GetHashCode() );
                 }
             }
             Spacing();
