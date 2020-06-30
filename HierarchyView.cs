@@ -16,6 +16,8 @@ namespace StrideCommunity.ImGuiDebug
         /// Based on hashcodes, it doesn't have to be exact, we just don't want to keep references from being collected
         /// </summary>
         HashSet<Guid> _recursingThrough = new HashSet<Guid>();
+        List<IIdentifiable> _searchResult = new List<IIdentifiable>();
+        string _searchTerm = "";
 
         const float DUMMY_WIDTH = 19;
         const float INDENTATION2 = DUMMY_WIDTH+8;
@@ -26,59 +28,106 @@ namespace StrideCommunity.ImGuiDebug
         {
             if( collapsed )
                 return;
-                    
+            
+            if( InputText( "Search", ref _searchTerm, 64 ) )
+            {
+                _searchResult.Clear();
+                if( System.String.IsNullOrWhiteSpace( _searchTerm ) == false )
+                    RecursiveSearch( _searchResult, _searchTerm.ToLower(), Game.SceneSystem.SceneInstance.RootScene );
+            }
+
             using( Child() )
             {
-                RecursiveDrawing( Game.SceneSystem.SceneInstance.RootScene );
+                foreach( IIdentifiable identifiable in _searchResult )
+                {
+                    RecursiveDrawing( identifiable );
+                }
+
+                if( _searchResult.Count > 0 )
+                {
+                    Spacing();
+                    Spacing();
+                }
+                
+                foreach( var child in EnumerateChildren( Game.SceneSystem.SceneInstance.RootScene ) )
+                    RecursiveDrawing( child );
             }
+        }
+        
+        void RecursiveSearch( List<IIdentifiable> result, string term, IIdentifiable source )
+        {
+            if( source == null )
+                return;
+            
+            foreach( var child in EnumerateChildren( source ) )
+            {
+                RecursiveSearch( result, term, child );
+            }
+            
+            string strLwr;
+            if( source is Entity entity )
+                strLwr = entity.Name.ToLower();
+            else if( source is Scene scene )
+                strLwr = scene.Name.ToLower();
+            else 
+                return;
+
+            if( term.Contains( strLwr ) || strLwr.Contains( term ) )
+                result.Add( source );
         }
 
         protected override void OnDestroy(){}
         
-        void RecursiveDrawing( IIdentifiable source, int d = 0 )
+        void RecursiveDrawing( IIdentifiable source )
         {
-            foreach( var child in EnumerateChildren( source ) )
+            if( source == null )
+                return;
+            
+            string label;
+            bool canRecurse;
             {
-                string label;
-                bool canRecurse;
+                if( source is Entity entity )
                 {
-                    if( child is Entity entity )
-                    {
-                        label = entity.Name;
-                        canRecurse = entity.Transform.Children.Count > 0;
-                    }
-                    else if( child is Scene scene )
-                    {
-                        label = scene.Name;
-                        canRecurse = scene.Children.Count > 0 || scene.Entities.Count > 0;
-                    }
-                    else return;
+                    label = entity.Name;
+                    canRecurse = entity.Transform.Children.Count > 0;
                 }
-
-                using( ID( child.Id.GetHashCode() ) )
+                else if( source is Scene scene )
                 {
-                    bool recurse = canRecurse && _recursingThrough.Contains( child.Id );
-                    if( canRecurse )
-                    {
-                        if( ArrowButton( "", recurse ? ImGuiDir.Down : ImGuiDir.Right ) )
-                        {
-                            if( recurse )
-                                _recursingThrough.Remove( child.Id );
-                            else
-                                _recursingThrough.Add( child.Id );
-                        }
-                    }
-                    else
-                        Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
-                    SameLine();
-                    
-                    if( Button( label ) )
-                        Inspector.FindFreeInspector( Services ).Target = child;
-    
-                    using( UIndent( INDENTATION2 ) )
+                    label = scene.Name;
+                    canRecurse = scene.Children.Count > 0 || scene.Entities.Count > 0;
+                }
+                else return;
+            }
+
+            using( ID( source.Id.GetHashCode() ) )
+            {
+                bool recursingThrough = _recursingThrough.Contains( source.Id );
+                bool recurse = canRecurse && recursingThrough;
+                if( canRecurse )
+                {
+                    if( ArrowButton( "", recurse ? ImGuiDir.Down : ImGuiDir.Right ) )
                     {
                         if( recurse )
-                            RecursiveDrawing( child, d+1 );
+                            _recursingThrough.Remove( source.Id );
+                        else
+                            _recursingThrough.Add( source.Id );
+                    }
+                }
+                else
+                    Dummy( new Vector2( DUMMY_WIDTH, 1 ) );
+                SameLine();
+                    
+                if( Button( label ) )
+                    Inspector.FindFreeInspector( Services ).Target = source;
+                    
+                using( UIndent( INDENTATION2 ) )
+                {
+                    if( recurse )
+                    {
+                        foreach( var child in EnumerateChildren( source ) )
+                        {
+                            RecursiveDrawing( child );
+                        }
                     }
                 }
             }
