@@ -89,6 +89,7 @@ public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
 
 Credits
 -------
-[Dear ImGui](https://github.com/ocornut/imgui)
-
+[Profan's contribution](https://github.com/profan/dear-xenko)
+[jazzay's contribution](https://github.com/jazzay/Xenko.Extensions#xenkoimgui)
 [ImGui.NET](https://github.com/mellinoe/ImGui.NET)
+[Dear ImGui](https://github.com/ocornut/imgui)
