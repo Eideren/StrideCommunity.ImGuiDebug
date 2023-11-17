@@ -1,16 +1,11 @@
-#if NET48 || NETCOREAPP
-#define GC_THREADMEM_SUPPORT
-#endif
-
-
-
 namespace StrideCommunity.ImGuiDebug
 {
 	using Stride.Core.Diagnostics;
 	using System.Collections.Generic;
 	using System.Runtime.CompilerServices;
 	using System.Numerics;
-	using Thread = System.Threading.Thread;
+	using System.Threading;
+	using System.Threading.Channels;
 	using TimeSpan = System.TimeSpan;
 	using ImGuiNET;
 	using Stride.Engine;
@@ -19,16 +14,13 @@ namespace StrideCommunity.ImGuiDebug
 	using static ImGuiExtension;
 
 
-
 	public class PerfMonitor : BaseWindow
 	{
 		public float GraphHeight = 48;
 		public float FrameHeight = 128;
 		public bool PauseEval;
 		public bool PauseOnLargeDelta;
-		#if GC_THREADMEM_SUPPORT
 		public bool MonitorSampleAlloc;
-		#endif
 
 		/// <summary>
 		/// Circumvent <see cref="_cpuSamples"/> dictionary access access but
@@ -50,11 +42,9 @@ namespace StrideCommunity.ImGuiDebug
 		(TimeSpan start, double duration) _cpuFrame;
 
 		// Stride-specific data
-		List<(ProfilingKey key, TemporaryStrideSample sample)> _bufferedEvents = new List<(ProfilingKey, TemporaryStrideSample)>();
-		List<SampleInstance> _gpuSamples = new List<SampleInstance>();
-		List<SampleInstance> _strideSamples = new List<SampleInstance>();
-		(TimeSpan start, double duration) _gpuFrame, _strideFrame;
-		int _gpuDepth, _strideDepth;
+		List<EventWrapper> _sorter = new();
+		CancellationTokenSource _stopProfiling;
+		(List<SampleInstance> samples, TimeSpan start, double duration, int depth) _gpu = (new(), default, default, default), _stride = (new(), default, default, default);
 
 		GraphPoint _graphAggregated;
 		GraphPoint[] _graph = new GraphPoint[ 256 ];
@@ -65,8 +55,6 @@ namespace StrideCommunity.ImGuiDebug
 
 		PerfMonitorAutoSampler _autoSampler;
 		PerfSampler _update, _draw;
-
-
 
 		/// <summary>
 		/// Place within a using statement to monitor the code within it.
@@ -195,11 +183,7 @@ namespace StrideCommunity.ImGuiDebug
 				NextColumn();
 				Checkbox( "on large delta", ref PauseOnLargeDelta );
 			}
-			#if GC_THREADMEM_SUPPORT
 			Checkbox( "Monitor Sample Alloc", ref MonitorSampleAlloc );
-			#else
-            TextUnformatted( "Latest .net required to monitor alloc" );
-			#endif
 
 			int sampleSize = _graph.Length;
 			InputInt( "Sample Size", ref sampleSize );
@@ -305,32 +289,39 @@ namespace StrideCommunity.ImGuiDebug
 					bool profiling = IsStrideProfilingAll();
 					if( Button( profiling ? "Stop Profiling" : "Profile Stride", buttonSize ) )
 					{
-						if( profiling )
+						if (profiling)
+						{
+							_stopProfiling.Cancel();
 							Profiler.DisableAll();
+						}
 						else
+						{
+							_stopProfiling = new CancellationTokenSource();
+							StartProcessingMarkers(_stopProfiling.Token, _sorter);
 							Profiler.EnableAll();
+						}
 					}
 
 
 					// GPU
-					if( CollapsingHeader( _gpuSamples.Count != 0 ? "GPU" : "GPU (profiling is off)" ) )
+					if( CollapsingHeader( _gpu.samples.Count != 0 ? "GPU" : "GPU (profiling is off)" ) )
 					{
 						// Child() to properly align content within
 						using( Child( size: new Vector2( 0f, FrameHeight ) ) )
 						{
-							foreach( var data in _gpuSamples )
-								DrawSample( default, MaxWidth(), data, _gpuFrame.start, _gpuFrame.duration );
+							foreach( var data in _gpu.samples )
+								DrawSample( default, MaxWidth(), data, _gpu.start, _gpu.duration );
 						}
 					}
 
 					// Stride Systems
-					if( CollapsingHeader( _strideSamples.Count != 0 ? "Stride Systems" : "Stride Systems (profiling is off)" ) )
+					if( CollapsingHeader( _stride.samples.Count != 0 ? "Stride Systems" : "Stride Systems (profiling is off)" ) )
 					{
 						// Child() to properly align content within
 						using( Child( size: new Vector2( 0f, FrameHeight ) ) )
 						{
-							foreach( var data in _strideSamples )
-								DrawSample( default, MaxWidth(), data, _strideFrame.start, _strideFrame.duration );
+							foreach( var data in _stride.samples )
+								DrawSample( default, MaxWidth(), data, _stride.start, _stride.duration );
 						}
 					}
 				}
@@ -338,6 +329,37 @@ namespace StrideCommunity.ImGuiDebug
 
 			// Leave it as dynamic after first set
 			_windowSize = null;
+		}
+
+		static async void StartProcessingMarkers(CancellationToken token, List<EventWrapper> _sortedList)
+		{
+			ChannelReader<ProfilingEvent> events = Profiler.Subscribe();
+			try
+			{
+				while (token.IsCancellationRequested == false)
+				{
+					ProfilingEvent perfEvent = await events.ReadAsync(token);
+					EventWrapper begin = new EventWrapper(perfEvent, true, perfEvent.TimeStamp);
+					EventWrapper end = new EventWrapper(perfEvent, false, perfEvent.TimeStamp + perfEvent.ElapsedTime);
+					lock (_sortedList)
+					{
+						var index = _sortedList.BinarySearch(begin);
+						if (index < 0)
+							_sortedList.Insert(~index, begin);
+						else
+							_sortedList.Insert(index, begin);
+						var index2 = _sortedList.BinarySearch(end);
+						if (index2 < 0)
+							_sortedList.Insert(~index2, end);
+						else
+							_sortedList.Insert(index2, end);
+					}
+				}
+			}
+			finally
+			{
+				Profiler.Unsubscribe(events);
+			}
 		}
 
 
@@ -375,7 +397,6 @@ namespace StrideCommunity.ImGuiDebug
 		}
 
 
-
 		void EndFrame()
 		{
 			using( Sample( $"{nameof( PerfSampler )}:{nameof( EndFrame )}" ) )
@@ -388,72 +409,53 @@ namespace StrideCommunity.ImGuiDebug
 					_frame?.Dispose();
 				_frame = new PerfSampler( "Frame", this, 0 );
 
-				bool isPaused = PauseEval;
-				using( Sample( $"{nameof( PerfSampler )}:StrideProfilerParsing" ) )
+				using( Sample( $"{nameof( PerfSampler )}:StrideProfilerParsing" ) ) // Manage stride-specific profiler events
 				{
-					// Manage stride-specific profiler events
-					// aggregate any buffered stride events, complete them if paused
-					foreach( var eType in PROFILING_EVENT_TYPES )
+					if (PauseEval)
 					{
-						// Consume events even if we are paused as the queue doesn't
-						// empty itself and will overflow given enough time.
-						var events = Profiler.GetEvents( eType, false );
-						// if there aren't any buffered events and we are paused, skip loop
-						if( Depth( eType ) == 0 && isPaused )
-							continue;
-						foreach( var perfEvent in events )
+						lock (_sorter)
+							_sorter.Clear();
+					}
+					else
+					{
+						TimeSpan min = TimeSpan.MaxValue, max = TimeSpan.MinValue;
+
+						_stride.samples.Clear();
+						_gpu.samples.Clear();
+
+						lock (_sorter)
 						{
-							if( perfEvent.Type == ProfilingMessageType.Begin )
+							foreach (var e in _sorter)
 							{
-								if( isPaused )
+								ref var data = ref e.Event.IsGPUEvent() ? ref _gpu : ref _stride;
+
+								if (e.Begin)
+								{
+									data.depth++;
 									continue;
-								TemporaryStrideSample txs = new TemporaryStrideSample
-								{
-									Start = ComputeAccurateTimespan( perfEvent.TimeStamp, eType ),
-									Type = eType,
-									Depth = Depth( eType )++
-								};
-								_bufferedEvents.Add( ( perfEvent.Key, txs ) );
-							}
-							else if( perfEvent.Type == ProfilingMessageType.End )
-							{
-								int? index = null;
-								for( int i = _bufferedEvents.Count - 1; i >= 0; i-- )
-								{
-									var v = _bufferedEvents[ i ];
-									if( v.key == perfEvent.Key )
-									{
-										// The closest begin doesn't own this end
-										// We probably paused and didn't quite reach depth 0
-										if( v.sample.Duration != null )
-											break;
-										index = i;
-										break;
-									}
 								}
 
-								// Process buffered messages to completion
-								if( index == null )
-									continue;
-
-								Depth( eType )--;
-								var temp = _bufferedEvents[ index.Value ];
-								temp.sample.Duration = ComputeAccurateTimespan( perfEvent.ElapsedTime, eType );
-								_bufferedEvents[ index.Value ] = temp;
-
-								// All events started and ended
-								if( Depth( eType ) == 0 )
-									PushStrideFrame( eType );
+								var end = e.Event.TimeStamp + e.Event.ElapsedTime;
+								min = min <= e.Event.TimeStamp ? min : e.Event.TimeStamp;
+								max = max > end ? max : end;
+								var sample = new SampleInstance( e.Event.Key.Name, data.depth, e.Event.TimeStamp, e.Event.ElapsedTime.TotalMilliseconds, null );
+								data.samples.Add(sample);
+								data.depth--;
 							}
-							else
-								continue;
+							_sorter.Clear();
 						}
+
+						if (_stride.samples.Count > 0)
+							_stride = _stride with { start = min, duration = (max - min).TotalMilliseconds };
+
+						if (_gpu.samples.Count > 0)
+							_gpu = _gpu with { start = min, duration = (max - min).TotalMilliseconds };
 					}
 				}
 
-				if( isPaused )
+				if (PauseEval)
 				{
-					foreach( var kvp in _cpuSamples )
+					foreach (var kvp in _cpuSamples)
 						kvp.Value.ClearBuffered();
 					_timer = LightweightTimer.StartNew();
 					return;
@@ -489,90 +491,6 @@ namespace StrideCommunity.ImGuiDebug
 					_graph[ i ] = _graph[ i + 1 ];
 				// Push latest onto our plot
 				_graph[ _graph.Length - 1 ] = newPoint;
-			}
-		}
-
-
-
-		void PushStrideFrame( ProfilingEventType eType )
-		{
-			var receiver = Receiver( eType );
-			// Clear past frames
-			receiver.Clear();
-
-			TimeSpan min = TimeSpan.MaxValue, max = TimeSpan.MinValue;
-			for( int i = 0; i < _bufferedEvents.Count; i++ )
-			{
-				( ProfilingKey key, TemporaryStrideSample tempSample ) = _bufferedEvents[ i ];
-				if( tempSample.Type != eType || tempSample.Duration == null )
-					continue;
-
-				var id = key.Name;
-				var sample = new SampleInstance( id, tempSample.Depth, tempSample.Start.Value, tempSample.Duration.Value.TotalMilliseconds, null );
-				receiver.Add( sample );
-
-				TimeSpan cMin = tempSample.Start.Value;
-				TimeSpan cMax = cMin + tempSample.Duration.Value;
-				if( cMin < min )
-					min = cMin;
-				if( cMax > max )
-					max = cMax;
-
-				// Mark this key for removal
-				_bufferedEvents.RemoveAt( i-- );
-			}
-
-			// Find min-max
-			if( receiver.Count > 0 )
-				Frames( eType ) = ( min, ( max - min ).TotalMilliseconds );
-		}
-
-
-
-		TimeSpan ComputeAccurateTimespan( long ticks, ProfilingEventType pet )
-		{
-			switch( pet )
-			{
-				case ProfilingEventType.CpuProfilingEvent: return Stride.Core.Utilities.ConvertRawToTimestamp( ticks );
-				// Lifted from stride's code base
-				case ProfilingEventType.GpuProfilingEvent: return new TimeSpan( ( ticks * 10000000 ) / GraphicsDevice.TimestampFrequency );
-				default: throw new System.ArgumentException( pet.ToString() );
-			}
-		}
-
-
-
-		ref int Depth( ProfilingEventType type )
-		{
-			switch( type )
-			{
-				case ProfilingEventType.CpuProfilingEvent: return ref _strideDepth;
-				case ProfilingEventType.GpuProfilingEvent: return ref _gpuDepth;
-				default: throw new System.ArgumentException( type.ToString() );
-			}
-		}
-
-
-
-		ref ( TimeSpan start, double ms ) Frames( ProfilingEventType type )
-		{
-			switch( type )
-			{
-				case ProfilingEventType.CpuProfilingEvent: return ref _strideFrame;
-				case ProfilingEventType.GpuProfilingEvent: return ref _gpuFrame;
-				default: throw new System.ArgumentException( type.ToString() );
-			}
-		}
-
-
-
-		List<SampleInstance> Receiver( ProfilingEventType type )
-		{
-			switch( type )
-			{
-				case ProfilingEventType.CpuProfilingEvent: return _strideSamples;
-				case ProfilingEventType.GpuProfilingEvent: return _gpuSamples;
-				default: throw new System.ArgumentException( type.ToString() );
 			}
 		}
 
@@ -634,9 +552,7 @@ namespace StrideCommunity.ImGuiDebug
 			readonly string _id;
 			readonly int _depth;
 			readonly bool _valid;
-			#if GC_THREADMEM_SUPPORT
 			readonly long? _mem;
-			#endif
 			readonly ThreadSampleCollection _target;
 			readonly bool _customDepth;
 
@@ -662,11 +578,9 @@ namespace StrideCommunity.ImGuiDebug
 
 				_timer = LightweightTimer.StartNew();
 
-				#if GC_THREADMEM_SUPPORT
 				_mem = null;
 				if( monitor.MonitorSampleAlloc )
 					_mem = System.GC.GetAllocatedBytesForCurrentThread();
-				#endif
 
 				_valid = true;
 			}
@@ -683,10 +597,8 @@ namespace StrideCommunity.ImGuiDebug
 				double ms = _timer.Elapsed.TotalMilliseconds;
 
 				long? deltaMem = null;
-				#if GC_THREADMEM_SUPPORT
 				if( _mem.HasValue )
 					deltaMem = System.GC.GetAllocatedBytesForCurrentThread() - _mem.Value;
-				#endif
 				var sampleInstance = new SampleInstance( _id, _depth, start, ms, deltaMem );
 				if( _customDepth == false )
 					_target.Depth--;
@@ -802,6 +714,13 @@ namespace StrideCommunity.ImGuiDebug
 
 			#endregion
 
+		}
+
+
+
+		readonly record struct EventWrapper(ProfilingEvent Event, bool Begin, TimeSpan Stamp) : System.IComparable<EventWrapper>
+		{
+			public int CompareTo(EventWrapper other) => Stamp.CompareTo(other.Stamp);
 		}
 
 

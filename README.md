@@ -9,11 +9,8 @@ Bare-bone implementation of ImGui and a couple of debug tools for Stride
 * Add this repo as a submodule of your game's repo.
 * Add a project reference pointing to this project inside your game's .csproj.
 * Reference ImGui.NET's nuget package in your game's project, see below.
-	* Optional: ``SetTargetFramework`` will specify the target framework when building, setting it to Core 2.0+ or Framework 4.8+ will allow you to monitor heap allocations within your samples, if you don't need that you can safely remove that line.
 ```xml
-<ProjectReference Include="..\StrideCommunity.ImGuiDebug\StrideCommunity.ImGuiDebug.csproj" >
-	<SetTargetFramework>TargetFramework=--yourDotNetFrameworkHere--</SetTargetFramework>
-</ProjectReference>
+<ProjectReference Include="..\StrideCommunity.ImGuiDebug\StrideCommunity.ImGuiDebug.csproj" />
 ```
 * Start ImGui within your game's BeginRun():
 ```cs
@@ -90,6 +87,9 @@ public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
 Credits
 -------
 [Profan's contribution](https://github.com/profan/dear-xenko)
+
 [jazzay's contribution](https://github.com/jazzay/Xenko.Extensions#xenkoimgui)
+
 [ImGui.NET](https://github.com/mellinoe/ImGui.NET)
+
 [Dear ImGui](https://github.com/ocornut/imgui)
