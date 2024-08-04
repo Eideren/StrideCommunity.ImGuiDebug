@@ -33,18 +33,18 @@ namespace StrideCommunity.ImGuiDebug
 
 
 		static readonly ProfilingEventType[] PROFILING_EVENT_TYPES = (ProfilingEventType[]) System.Enum.GetValues( typeof(ProfilingEventType) );
-		static ProfilingKey _dummyKey = new ProfilingKey( "dummy" );
+		static readonly ProfilingKey _dummyKey = new( "dummy" );
 
 
-		// Work agnostic data
-		Dictionary<Thread, ThreadSampleCollection> _cpuSamples = new Dictionary<Thread, ThreadSampleCollection>();
+        // Work agnostic data
+        readonly Dictionary<Thread, ThreadSampleCollection> _cpuSamples = [];
 		LightweightTimer _timer = LightweightTimer.StartNew();
 		(TimeSpan start, double duration) _cpuFrame;
 
-		// Stride-specific data
-		List<EventWrapper> _sorter = new();
+        // Stride-specific data
+        readonly List<EventWrapper> _sorter = [];
 		CancellationTokenSource _stopProfiling;
-		(List<SampleInstance> samples, TimeSpan start, double duration, int depth) _gpu = (new(), default, default, default), _stride = (new(), default, default, default);
+		(List<SampleInstance> samples, TimeSpan start, double duration, int depth) _gpu = ([], default, default, default), _stride = ([], default, default, default);
 
 		GraphPoint _graphAggregated;
 		GraphPoint[] _graph = new GraphPoint[ 256 ];
@@ -84,8 +84,8 @@ namespace StrideCommunity.ImGuiDebug
 		protected override Vector2? WindowPos => new Vector2( 1f, 1f );
 		protected override Vector2? WindowSize => _windowSize;
 
-		Vector2 GetGraphSize() => new Vector2( MaxWidth(), GraphHeight );
-		float MaxWidth() => GetContentRegionAvail().X;
+		Vector2 GetGraphSize() => new(MaxWidth(), GraphHeight );
+        static float MaxWidth() => GetContentRegionAvail().X;
 
 
 
@@ -297,7 +297,7 @@ namespace StrideCommunity.ImGuiDebug
 						else
 						{
 							_stopProfiling = new CancellationTokenSource();
-							StartProcessingMarkers(_stopProfiling.Token, _sorter);
+							StartProcessingMarkers(_sorter, _stopProfiling.Token);
 							Profiler.EnableAll();
 						}
 					}
@@ -331,7 +331,7 @@ namespace StrideCommunity.ImGuiDebug
 			_windowSize = null;
 		}
 
-		static async void StartProcessingMarkers(CancellationToken token, List<EventWrapper> _sortedList)
+        static async void StartProcessingMarkers(List<EventWrapper> _sortedList, CancellationToken token)
 		{
 			ChannelReader<ProfilingEvent> events = Profiler.Subscribe();
 			try
@@ -339,8 +339,8 @@ namespace StrideCommunity.ImGuiDebug
 				while (token.IsCancellationRequested == false)
 				{
 					ProfilingEvent perfEvent = await events.ReadAsync(token);
-					EventWrapper begin = new EventWrapper(perfEvent, true, perfEvent.TimeStamp);
-					EventWrapper end = new EventWrapper(perfEvent, false, perfEvent.TimeStamp + perfEvent.ElapsedTime);
+					EventWrapper begin = new(perfEvent, true, perfEvent.TimeStamp);
+					EventWrapper end = new(perfEvent, false, perfEvent.TimeStamp + perfEvent.ElapsedTime);
 					lock (_sortedList)
 					{
 						var index = _sortedList.BinarySearch(begin);
@@ -401,8 +401,7 @@ namespace StrideCommunity.ImGuiDebug
 		{
 			using( Sample( $"{nameof( PerfSampler )}:{nameof( EndFrame )}" ) )
 			{
-				if( _threadStaticMonitor == null )
-					_threadStaticMonitor = this;
+				_threadStaticMonitor ??= this;
 				if( _frame == null )
 					Guaranteed( _cpuSamples, Thread.CurrentThread ).Depth++;
 				else
@@ -467,8 +466,8 @@ namespace StrideCommunity.ImGuiDebug
 				_cpuFrame = ( _timer.InitTime, _timer.Restart().TotalMilliseconds );
 
 				const double MB = ( 1 << 20 );
-				GraphPoint newPoint = new GraphPoint
-				{
+                GraphPoint newPoint = new()
+                {
 					FrameTime = (float) _cpuFrame.duration,
 					TotalManagedMB = (float) ( System.GC.GetTotalMemory( false ) / MB ),
 					DrawCalls = GraphicsDevice.FrameDrawCalls,
@@ -488,9 +487,9 @@ namespace StrideCommunity.ImGuiDebug
 
 				// Move each value to a lower position in the array, could be replaced by a mem copy ?
 				for( int i = 0; i < _graph.Length - 1; i++ )
-					_graph[ i ] = _graph[ i + 1 ];
+					_graph[i] = _graph[ i + 1 ];
 				// Push latest onto our plot
-				_graph[ _graph.Length - 1 ] = newPoint;
+				_graph[^1] = newPoint;
 			}
 		}
 
@@ -726,30 +725,19 @@ namespace StrideCommunity.ImGuiDebug
 
 
 		/// <summary> Object containing a sample's data </summary>
-		readonly struct SampleInstance
-		{
-			public readonly string Id;
-			public readonly int Depth;
-			public readonly TimeSpan Start;
-			public readonly double Duration;
-			public readonly long? DeltaMemAlloc;
+		readonly struct SampleInstance(string id, int depth, TimeSpan start, double duration, long? deltaMemAlloc)
+        {
+			public readonly string Id = id;
+			public readonly int Depth = depth;
+			public readonly TimeSpan Start = start;
+			public readonly double Duration = duration;
+			public readonly long? DeltaMemAlloc = deltaMemAlloc;
+        }
 
 
 
-			public SampleInstance( string id, int depth, TimeSpan start, double duration, long? deltaMemAlloc )
-			{
-				Id = id;
-				Depth = depth;
-				Start = start;
-				Duration = duration;
-				DeltaMemAlloc = deltaMemAlloc;
-			}
-		}
-
-
-
-		/// <summary> Object to hold Stride's profiler samples until they are marked as done </summary>
-		struct TemporaryStrideSample
+        /// <summary> Object to hold Stride's profiler samples until they are marked as done </summary>
+        struct TemporaryStrideSample
 		{
 			public ProfilingEventType Type;
 			public TimeSpan? Start;
@@ -778,9 +766,9 @@ namespace StrideCommunity.ImGuiDebug
 			/// </summary>
 			public IReadOnlyList<SampleInstance> Displayed => _displayed;
 
-			object _bufferLock = new object();
-			List<SampleInstance> _buffered = new List<SampleInstance>();
-			List<SampleInstance> _displayed = new List<SampleInstance>();
+            readonly object _bufferLock = new();
+			List<SampleInstance> _buffered = [];
+			List<SampleInstance> _displayed = [];
 
 
 
@@ -789,10 +777,8 @@ namespace StrideCommunity.ImGuiDebug
 			{
 				lock( _bufferLock )
 				{
-					var temp = _buffered;
-					_buffered = _displayed;
-					_displayed = temp;
-					_buffered.Clear();
+                    (_displayed, _buffered) = (_buffered, _displayed);
+                    _buffered.Clear();
 				}
 			}
 
@@ -819,7 +805,7 @@ namespace StrideCommunity.ImGuiDebug
 
 		class PerfMonitorAutoSampler : GameSystem
 		{
-			PerfMonitor _monitor;
+            readonly PerfMonitor _monitor;
 
 
 

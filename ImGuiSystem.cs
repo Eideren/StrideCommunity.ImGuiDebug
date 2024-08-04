@@ -14,6 +14,8 @@ namespace StrideCommunity.ImGuiDebug
     using System.Runtime.InteropServices;
 
     using ImGuiNET;
+    using System.Collections.Generic;
+    using static Stride.Input.VirtualButton;
 
     public class ImGuiSystem : GameSystemBase 
     {
@@ -75,6 +77,8 @@ namespace StrideCommunity.ImGuiDebug
             Game.GameSystems.Add(this);
         }
 
+        private List<(ImGuiKey ImGuiKey, Keys StrideKey)> _keys = [];
+
         void SetupInput() 
         {
             var io = ImGui.GetIO();
@@ -82,27 +86,32 @@ namespace StrideCommunity.ImGuiDebug
             // keyboard nav yes
             io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
 
-            var keymap = io.KeyMap;
-            keymap[(int)ImGuiKey.Tab] = (int)Keys.Tab;
-            keymap[(int)ImGuiKey.LeftArrow] = (int)Keys.Left;
-            keymap[(int)ImGuiKey.RightArrow] = (int)Keys.Right;
-            keymap[(int)ImGuiKey.UpArrow] = (int)Keys.Up;
-            keymap[(int)ImGuiKey.DownArrow] = (int)Keys.Down;
-            keymap[(int)ImGuiKey.PageUp] = (int)Keys.PageUp;
-            keymap[(int)ImGuiKey.PageDown] = (int)Keys.PageDown;
-            keymap[(int)ImGuiKey.Home] = (int)Keys.Home;
-            keymap[(int)ImGuiKey.End] = (int)Keys.End;
-            keymap[(int)ImGuiKey.Delete] = (int)Keys.Delete;
-            keymap[(int)ImGuiKey.Backspace] = (int)Keys.Back;
-            keymap[(int)ImGuiKey.Enter] = (int)Keys.Enter;
-            keymap[(int)ImGuiKey.Escape] = (int)Keys.Escape;
-            keymap[(int)ImGuiKey.Space] = (int)Keys.Space;
-            keymap[(int)ImGuiKey.A] = (int)Keys.A;
-            keymap[(int)ImGuiKey.C] = (int)Keys.C;
-            keymap[(int)ImGuiKey.V] = (int)Keys.V;
-            keymap[(int)ImGuiKey.X] = (int)Keys.X;
-            keymap[(int)ImGuiKey.Y] = (int)Keys.Y;
-            keymap[(int)ImGuiKey.Z] = (int)Keys.Z;
+
+            _keys.Add((ImGuiKey.Tab, Keys.Tab));
+            _keys.Add((ImGuiKey.LeftArrow, Keys.Left));
+            _keys.Add((ImGuiKey.RightArrow, Keys.Right));
+            _keys.Add((ImGuiKey.UpArrow, Keys.Up));
+            _keys.Add((ImGuiKey.DownArrow, Keys.Down));
+            _keys.Add((ImGuiKey.PageUp, Keys.PageUp));
+            _keys.Add((ImGuiKey.PageDown, Keys.PageDown));
+            _keys.Add((ImGuiKey.Home, Keys.Home));
+            _keys.Add((ImGuiKey.End, Keys.End));
+            _keys.Add((ImGuiKey.Delete, Keys.Delete));
+            _keys.Add((ImGuiKey.Backspace, Keys.Back));
+            _keys.Add((ImGuiKey.Enter, Keys.Enter));
+            _keys.Add((ImGuiKey.Escape, Keys.Escape));
+            _keys.Add((ImGuiKey.A, Keys.A));
+            _keys.Add((ImGuiKey.C, Keys.C));
+            _keys.Add((ImGuiKey.V, Keys.V));
+            _keys.Add((ImGuiKey.X, Keys.X));
+            _keys.Add((ImGuiKey.Y, Keys.Y));
+            _keys.Add((ImGuiKey.Z, Keys.Z));
+
+
+            foreach (var pair in _keys)
+            {
+                io.AddKeyEvent(pair.ImGuiKey, input.IsKeyDown(pair.StrideKey));
+            }
 
             setClipboardFn = SetClipboard;
             getClipboardFn = GetClipboard;
@@ -235,10 +244,10 @@ namespace StrideCommunity.ImGuiDebug
                             if (tev.Text == "\t") continue;
                             io.AddInputCharactersUTF8(tev.Text);
                             break;
-                        case KeyEvent kev:
-                            var keysDown = io.KeysDown;
-                            keysDown[(int)kev.Key] = kev.IsDown;
-                            break;
+                        //case KeyEvent kev:
+                        //    var keysDown = io.KeysDown;
+                        //    keysDown[(int)kev.Key] = kev.IsDown;
+                        //    break;
                         case MouseWheelEvent mw:
                             io.MouseWheel += mw.WheelDelta;
                             break;
@@ -292,7 +301,7 @@ namespace StrideCommunity.ImGuiDebug
 
             for (int n = 0; n < drawData.CmdListsCount; n++) 
             {
-                ImDrawListPtr cmdList = drawData.CmdListsRange[n];
+                ImDrawListPtr cmdList = drawData.CmdLists[n];
                 vertexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.VtxBuffer.Data, cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>()), vtxOffsetBytes);
                 indexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.IdxBuffer.Data, cmdList.IdxBuffer.Size * sizeof(ushort)), idxOffsetBytes);
                 vtxOffsetBytes += cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>();
@@ -320,7 +329,7 @@ namespace StrideCommunity.ImGuiDebug
             int idxOffset = 0;
             for (int n = 0; n < drawData.CmdListsCount; n++) 
             {
-                ImDrawListPtr cmdList = drawData.CmdListsRange[n];
+                ImDrawListPtr cmdList = drawData.CmdLists[n];
 
                 for (int i = 0; i < cmdList.CmdBuffer.Size; i++) 
                 {

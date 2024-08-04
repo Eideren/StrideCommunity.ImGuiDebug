@@ -42,10 +42,10 @@ namespace StrideCommunity.ImGuiDebug
             return new DisposableImGui( true, DisposableTypes.Window );
         }
         
-        public static DisposableImGui Child( [ CallerLineNumber ] int cln = 0, Vector2 size = default,
-            bool border = false, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
+        public static DisposableImGui Child( [ CallerLineNumber ] uint cln = 0, Vector2 size = default,
+            bool border = false, ImGuiChildFlags childFlags = ImGuiChildFlags.None, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
         {
-            BeginChild( (uint) cln, size, border, flags );
+            BeginChild(cln, size, childFlags, flags );
             return new DisposableImGui(true, DisposableTypes.Child );
         }
         public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar );

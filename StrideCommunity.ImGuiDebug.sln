@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34511.84
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StrideCommunity.ImGuiDebug", "StrideCommunity.ImGuiDebug.csproj", "{0E0460B0-5B7E-4F29-A06C-2D7627845FD5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0E0460B0-5B7E-4F29-A06C-2D7627845FD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E0460B0-5B7E-4F29-A06C-2D7627845FD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E0460B0-5B7E-4F29-A06C-2D7627845FD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E0460B0-5B7E-4F29-A06C-2D7627845FD5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2F00C128-CD9D-47D6-8117-DA3CEB5E7916}
+	EndGlobalSection
+EndGlobal
