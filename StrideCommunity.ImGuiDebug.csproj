@@ -12,6 +12,19 @@
 
     <PackageReference Include="Stride.Core.Assets.CompilerApp" Version="4.2.0.2188" PrivateAssets="contentfiles; analyzers" IncludeAssets="build; buildtransitive" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Effects\ImGuiShader.sdsl.cs">
+      <DesignTime>True</DesignTime>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Effects\ImGuiShader.sdsl">
+      <LastGenOutput>ImGuiShader.sdsl.cs</LastGenOutput>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <PropertyGroup Condition="$(Configuration.Contains('Debug'))">
     <DebugType>full</DebugType>
   </PropertyGroup>
