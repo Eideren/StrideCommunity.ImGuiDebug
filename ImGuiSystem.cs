@@ -38,6 +38,8 @@ namespace StrideCommunity.ImGuiDebug
         EffectInstance imShader;
         Texture fontTexture;
 
+        private readonly nint _context;
+
         public ImGuiSystem([NotNull] IServiceRegistry registry, [NotNull] GraphicsDeviceManager graphicsDeviceManager, InputManager inputManager = null) : base(registry) 
         {
             input = inputManager ?? Services.GetService<InputManager>();
@@ -55,9 +57,9 @@ namespace StrideCommunity.ImGuiDebug
             effectSystem = Services.GetService<EffectSystem>();
             Debug.Assert(effectSystem != null, "ImGuiSystem: EffectSystem must be available!");
 
-            IntPtr c = ImGui.CreateContext();
-            Debug.Assert(c != IntPtr.Zero, "ImGuiSystem: Failed Creating ImGui Context!");
-            ImGui.SetCurrentContext(c);
+            _context = ImGui.CreateContext();
+            Debug.Assert(_context != IntPtr.Zero, "ImGuiSystem: Failed Creating ImGui Context!");
+            ImGui.SetCurrentContext(_context);
 
             // SETTO
             SetupInput();
@@ -75,6 +77,12 @@ namespace StrideCommunity.ImGuiDebug
             // Include this new instance into our services and systems so that stride fires our functions automatically
             Services.AddService(this);
             Game.GameSystems.Add(this);
+        }
+
+        protected override void Destroy()
+        {
+            ImGui.DestroyContext(_context);
+            base.Destroy();
         }
 
         private List<(ImGuiKey ImGuiKey, Keys StrideKey)> _keys = [];
@@ -301,7 +309,7 @@ namespace StrideCommunity.ImGuiDebug
 
             for (int n = 0; n < drawData.CmdListsCount; n++) 
             {
-                ImDrawListPtr cmdList = drawData.CmdLists[n];
+                ImDrawListPtr cmdList = drawData.CmdListsRange[n];
                 vertexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.VtxBuffer.Data, cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>()), vtxOffsetBytes);
                 indexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.IdxBuffer.Data, cmdList.IdxBuffer.Size * sizeof(ushort)), idxOffsetBytes);
                 vtxOffsetBytes += cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>();
@@ -329,7 +337,7 @@ namespace StrideCommunity.ImGuiDebug
             int idxOffset = 0;
             for (int n = 0; n < drawData.CmdListsCount; n++) 
             {
-                ImDrawListPtr cmdList = drawData.CmdLists[n];
+                ImDrawListPtr cmdList = drawData.CmdListsRange[n];
 
                 for (int i = 0; i < cmdList.CmdBuffer.Size; i++) 
                 {

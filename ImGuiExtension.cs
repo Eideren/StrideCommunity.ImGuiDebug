@@ -43,9 +43,9 @@ namespace StrideCommunity.ImGuiDebug
         }
         
         public static DisposableImGui Child( [ CallerLineNumber ] uint cln = 0, Vector2 size = default,
-            bool border = false, ImGuiChildFlags childFlags = ImGuiChildFlags.None, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
+            bool border = false, ImGuiWindowFlags flags = ImGuiWindowFlags.None )
         {
-            BeginChild(cln, size, childFlags, flags );
+            BeginChild(cln, size, border, flags );
             return new DisposableImGui(true, DisposableTypes.Child );
         }
         public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar );
