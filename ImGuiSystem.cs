@@ -85,7 +85,7 @@ namespace StrideCommunity.ImGuiDebug
             base.Destroy();
         }
 
-        private List<(ImGuiKey ImGuiKey, Keys StrideKey)> _keys = [];
+        private Dictionary<Keys, ImGuiKey> _keys = [];
 
         void SetupInput() 
         {
@@ -94,32 +94,25 @@ namespace StrideCommunity.ImGuiDebug
             // keyboard nav yes
             io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
 
-
-            _keys.Add((ImGuiKey.Tab, Keys.Tab));
-            _keys.Add((ImGuiKey.LeftArrow, Keys.Left));
-            _keys.Add((ImGuiKey.RightArrow, Keys.Right));
-            _keys.Add((ImGuiKey.UpArrow, Keys.Up));
-            _keys.Add((ImGuiKey.DownArrow, Keys.Down));
-            _keys.Add((ImGuiKey.PageUp, Keys.PageUp));
-            _keys.Add((ImGuiKey.PageDown, Keys.PageDown));
-            _keys.Add((ImGuiKey.Home, Keys.Home));
-            _keys.Add((ImGuiKey.End, Keys.End));
-            _keys.Add((ImGuiKey.Delete, Keys.Delete));
-            _keys.Add((ImGuiKey.Backspace, Keys.Back));
-            _keys.Add((ImGuiKey.Enter, Keys.Enter));
-            _keys.Add((ImGuiKey.Escape, Keys.Escape));
-            _keys.Add((ImGuiKey.A, Keys.A));
-            _keys.Add((ImGuiKey.C, Keys.C));
-            _keys.Add((ImGuiKey.V, Keys.V));
-            _keys.Add((ImGuiKey.X, Keys.X));
-            _keys.Add((ImGuiKey.Y, Keys.Y));
-            _keys.Add((ImGuiKey.Z, Keys.Z));
-
-
-            foreach (var pair in _keys)
-            {
-                io.AddKeyEvent(pair.ImGuiKey, input.IsKeyDown(pair.StrideKey));
-            }
+            _keys.Add(Keys.Tab, ImGuiKey.Tab);
+            _keys.Add(Keys.Left, ImGuiKey.LeftArrow);
+            _keys.Add(Keys.Right, ImGuiKey.RightArrow);
+            _keys.Add(Keys.Up, ImGuiKey.UpArrow);
+            _keys.Add(Keys.Down, ImGuiKey.DownArrow);
+            _keys.Add(Keys.PageUp, ImGuiKey.PageUp);
+            _keys.Add(Keys.PageDown, ImGuiKey.PageDown);
+            _keys.Add(Keys.Home, ImGuiKey.Home);
+            _keys.Add(Keys.End, ImGuiKey.End);
+            _keys.Add(Keys.Delete, ImGuiKey.Delete);
+            _keys.Add(Keys.Back, ImGuiKey.Backspace);
+            _keys.Add(Keys.Enter, ImGuiKey.Enter);
+            _keys.Add(Keys.Escape, ImGuiKey.Escape);
+            _keys.Add(Keys.A, ImGuiKey.A);
+            _keys.Add(Keys.C, ImGuiKey.C);
+            _keys.Add(Keys.V, ImGuiKey.V);
+            _keys.Add(Keys.X, ImGuiKey.X);
+            _keys.Add(Keys.Y, ImGuiKey.Y);
+            _keys.Add(Keys.Z, ImGuiKey.Z);
 
             setClipboardFn = SetClipboard;
             getClipboardFn = GetClipboard;
@@ -252,10 +245,10 @@ namespace StrideCommunity.ImGuiDebug
                             if (tev.Text == "\t") continue;
                             io.AddInputCharactersUTF8(tev.Text);
                             break;
-                        //case KeyEvent kev:
-                        //    var keysDown = io.KeysDown;
-                        //    keysDown[(int)kev.Key] = kev.IsDown;
-                        //    break;
+                        case KeyEvent kev:
+                            if (_keys.TryGetValue(kev.Key, out var imGuiKey))
+                                io.AddKeyEvent(imGuiKey, input.IsKeyDown(kev.Key));
+                            break;
                         case MouseWheelEvent mw:
                             io.MouseWheel += mw.WheelDelta;
                             break;
