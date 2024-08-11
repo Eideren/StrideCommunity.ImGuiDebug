@@ -119,6 +119,7 @@ public class ImGuiSystem : GameSystemBase
         _keys.Add(Keys.Back, ImGuiKey.Backspace);
         _keys.Add(Keys.Enter, ImGuiKey.Enter);
         _keys.Add(Keys.Escape, ImGuiKey.Escape);
+        _keys.Add(Keys.Space, ImGuiKey.Space);
         _keys.Add(Keys.A, ImGuiKey.A);
         _keys.Add(Keys.C, ImGuiKey.C);
         _keys.Add(Keys.V, ImGuiKey.V);
