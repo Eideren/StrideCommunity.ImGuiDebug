@@ -53,6 +53,8 @@ public class ImGuiSystem : GameSystemBase
     EffectInstance imShader;
     Texture fontTexture;
 
+    private Dictionary<Keys, ImGuiKey> _keys = [];
+
     public ImGuiSystem([NotNull] IServiceRegistry registry, [NotNull] GraphicsDeviceManager graphicsDeviceManager, InputManager inputManager = null) : base(registry)
     {
         input = inputManager ?? Services.GetService<InputManager>();
@@ -98,8 +100,6 @@ public class ImGuiSystem : GameSystemBase
         ImGui.DestroyContext(ImGuiContext);
         base.Destroy();
     }
-
-    private Dictionary<Keys, ImGuiKey> _keys = [];
 
     unsafe void SetupInput()
     {
