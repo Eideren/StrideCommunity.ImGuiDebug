@@ -1,368 +1,381 @@
-namespace StrideCommunity.ImGuiDebug
+using Hexa.NET.ImGui;
+using Stride.Core;
+using Stride.Core.Annotations;
+using Stride.Core.Mathematics;
+using Stride.Games;
+using Stride.Graphics;
+using Stride.Input;
+using Stride.Profiling;
+using Stride.Rendering;
+using System.Collections.Generic;
+using System;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+namespace StrideCommunity.ImGuiDebug;
+
+public class ImGuiSystem : GameSystemBase
 {
-    using Stride.Core;
-    using Stride.Games;
-    using Stride.Graphics;
-    using Stride.Rendering;
-    using Stride.Core.Mathematics;
-    using Stride.Core.Annotations;
-    using Stride.Input;
 
-    using System;
-    using System.Diagnostics;
-    using System.Runtime.CompilerServices;
-    using System.Runtime.InteropServices;
+    public readonly ImGuiContextPtr ImGuiContext;
 
-    using ImGuiNET;
-    using System.Collections.Generic;
-    using static Stride.Input.VirtualButton;
-
-    public class ImGuiSystem : GameSystemBase 
+    public float Scale
     {
-        const int INITIAL_VERTEX_BUFFER_SIZE = 128;
-        const int INITIAL_INDEX_BUFFER_SIZE = 128;
-
-        // dependencies
-        InputManager input;
-        GraphicsDevice device;
-        GraphicsDeviceManager deviceManager;
-        GraphicsContext context;
-        EffectSystem effectSystem;
-        CommandList commandList;
-
-        // device objects
-        PipelineState imPipeline;
-        VertexDeclaration imVertLayout;
-        VertexBufferBinding vertexBinding;
-        IndexBufferBinding indexBinding;
-        EffectInstance imShader;
-        Texture fontTexture;
-
-        private readonly nint _context;
-
-        public ImGuiSystem([NotNull] IServiceRegistry registry, [NotNull] GraphicsDeviceManager graphicsDeviceManager, InputManager inputManager = null) : base(registry) 
+        get => _scale;
+        set
         {
-            input = inputManager ?? Services.GetService<InputManager>();
-            Debug.Assert(input != null, "ImGuiSystem: InputManager must be available!");
-
-            deviceManager = graphicsDeviceManager;
-            Debug.Assert(deviceManager != null, "ImGuiSystem: GraphicsDeviceManager must be available!");
-
-            device = deviceManager.GraphicsDevice;
-            Debug.Assert(device != null, "ImGuiSystem: GraphicsDevice must be available!");
-
-            context = Services.GetService<GraphicsContext>();
-            Debug.Assert(context != null, "ImGuiSystem: GraphicsContext must be available!");
-
-            effectSystem = Services.GetService<EffectSystem>();
-            Debug.Assert(effectSystem != null, "ImGuiSystem: EffectSystem must be available!");
-
-            _context = ImGui.CreateContext();
-            Debug.Assert(_context != IntPtr.Zero, "ImGuiSystem: Failed Creating ImGui Context!");
-            ImGui.SetCurrentContext(_context);
-
-            // SETTO
-            SetupInput();
-
-            // vbos etc
-            CreateDeviceObjects();
-
-            // font stuff
+            _scale = value;
             CreateFontTexture();
-            
-            Enabled = true; // Force Update functions to be run
-            Visible = true; // Force Draw related functions to be run
-            UpdateOrder = 1; // Update should occur after Stride's InputManager
-
-            // Include this new instance into our services and systems so that stride fires our functions automatically
-            Services.AddService(this);
-            Game.GameSystems.Add(this);
         }
+    }
+    private float _scale = 1;
 
-        protected override void Destroy()
+    const int INITIAL_VERTEX_BUFFER_SIZE = 128;
+    const int INITIAL_INDEX_BUFFER_SIZE = 128;
+
+    private ImGuiIOPtr _io;
+
+    // dependencies
+    readonly InputManager input;
+    readonly GraphicsDevice device;
+    readonly GraphicsDeviceManager deviceManager;
+    readonly GraphicsContext context;
+    readonly EffectSystem effectSystem;
+    readonly DebugTextSystem debug;
+    CommandList commandList;
+
+    // device objects
+    PipelineState imPipeline;
+    VertexDeclaration imVertLayout;
+    VertexBufferBinding vertexBinding;
+    IndexBufferBinding indexBinding;
+    EffectInstance imShader;
+    Texture fontTexture;
+
+    public ImGuiSystem([NotNull] IServiceRegistry registry, [NotNull] GraphicsDeviceManager graphicsDeviceManager, InputManager inputManager = null) : base(registry)
+    {
+        input = inputManager ?? Services.GetService<InputManager>();
+        Debug.Assert(input != null, "ImGuiSystem: InputManager must be available!");
+
+        deviceManager = graphicsDeviceManager;
+        Debug.Assert(deviceManager != null, "ImGuiSystem: GraphicsDeviceManager must be available!");
+
+        device = deviceManager.GraphicsDevice;
+        Debug.Assert(device != null, "ImGuiSystem: GraphicsDevice must be available!");
+
+        context = Services.GetService<GraphicsContext>();
+        Debug.Assert(context != null, "ImGuiSystem: GraphicsContext must be available!");
+
+        effectSystem = Services.GetService<EffectSystem>();
+        Debug.Assert(effectSystem != null, "ImGuiSystem: EffectSystem must be available!");
+
+        ImGuiContext = ImGui.CreateContext();
+        ImGui.SetCurrentContext(ImGuiContext);
+
+        _io = ImGui.GetIO();
+
+        // SETTO
+        SetupInput();
+
+        // vbos etc
+        CreateDeviceObjects();
+
+        // font stuff
+        CreateFontTexture();
+
+        Enabled = true; // Force Update functions to be run
+        Visible = true; // Force Draw related functions to be run
+        UpdateOrder = 1; // Update should occur after Stride's InputManager
+
+        // Include this new instance into our services and systems so that stride fires our functions automatically
+        Services.AddService(this);
+        Game.GameSystems.Add(this);
+    }
+
+    protected override void Destroy()
+    {
+        ImGui.DestroyContext(ImGuiContext);
+        base.Destroy();
+    }
+
+    private Dictionary<Keys, ImGuiKey> _keys = [];
+
+    unsafe void SetupInput()
+    {
+        // keyboard nav yes
+        _io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
+
+        _keys.Add(Keys.Tab, ImGuiKey.Tab);
+        _keys.Add(Keys.Left, ImGuiKey.LeftArrow);
+        _keys.Add(Keys.Right, ImGuiKey.RightArrow);
+        _keys.Add(Keys.Up, ImGuiKey.UpArrow);
+        _keys.Add(Keys.Down, ImGuiKey.DownArrow);
+        _keys.Add(Keys.PageUp, ImGuiKey.PageUp);
+        _keys.Add(Keys.PageDown, ImGuiKey.PageDown);
+        _keys.Add(Keys.Home, ImGuiKey.Home);
+        _keys.Add(Keys.End, ImGuiKey.End);
+        _keys.Add(Keys.Delete, ImGuiKey.Delete);
+        _keys.Add(Keys.Back, ImGuiKey.Backspace);
+        _keys.Add(Keys.Enter, ImGuiKey.Enter);
+        _keys.Add(Keys.Escape, ImGuiKey.Escape);
+        _keys.Add(Keys.A, ImGuiKey.A);
+        _keys.Add(Keys.C, ImGuiKey.C);
+        _keys.Add(Keys.V, ImGuiKey.V);
+        _keys.Add(Keys.X, ImGuiKey.X);
+        _keys.Add(Keys.Y, ImGuiKey.Y);
+        _keys.Add(Keys.Z, ImGuiKey.Z);
+
+        setClipboardFn = SetClipboard;
+        getClipboardFn = GetClipboard;
+
+        _io.SetClipboardTextFn = (void*)Marshal.GetFunctionPointerForDelegate(setClipboardFn);
+        _io.GetClipboardTextFn = (void*)Marshal.GetFunctionPointerForDelegate(getClipboardFn);
+    }
+
+    [FixedAddressValueType]
+    static SetClipboardDelegate setClipboardFn;
+
+    [FixedAddressValueType]
+    static GetClipboardDelegate getClipboardFn;
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    delegate void SetClipboardDelegate(IntPtr data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    delegate IntPtr GetClipboardDelegate();
+
+    void SetClipboard(IntPtr data)
+    {
+    }
+
+    unsafe IntPtr GetClipboard()
+    {
+        return (nint)_io.ClipboardUserData;
+    }
+
+    void CreateDeviceObjects()
+    {
+        // set up a commandlist
+        commandList = context.CommandList;
+
+        // compile de shader
+        imShader = new EffectInstance(effectSystem.LoadEffect("ImGuiShader").WaitForResult());
+        imShader.UpdateEffect(device);
+
+        var layout = new VertexDeclaration(
+            VertexElement.Position<Vector2>(),
+            VertexElement.TextureCoordinate<Vector2>(),
+            VertexElement.Color(PixelFormat.R8G8B8A8_UNorm)
+        );
+
+        imVertLayout = layout;
+
+        // de pipeline desc
+        var pipeline = new PipelineStateDescription()
         {
-            ImGui.DestroyContext(_context);
-            base.Destroy();
-        }
+            BlendState = BlendStates.NonPremultiplied,
 
-        private Dictionary<Keys, ImGuiKey> _keys = [];
-
-        void SetupInput() 
-        {
-            var io = ImGui.GetIO();
-
-            // keyboard nav yes
-            io.ConfigFlags |= ImGuiConfigFlags.NavEnableKeyboard;
-
-            _keys.Add(Keys.Tab, ImGuiKey.Tab);
-            _keys.Add(Keys.Left, ImGuiKey.LeftArrow);
-            _keys.Add(Keys.Right, ImGuiKey.RightArrow);
-            _keys.Add(Keys.Up, ImGuiKey.UpArrow);
-            _keys.Add(Keys.Down, ImGuiKey.DownArrow);
-            _keys.Add(Keys.PageUp, ImGuiKey.PageUp);
-            _keys.Add(Keys.PageDown, ImGuiKey.PageDown);
-            _keys.Add(Keys.Home, ImGuiKey.Home);
-            _keys.Add(Keys.End, ImGuiKey.End);
-            _keys.Add(Keys.Delete, ImGuiKey.Delete);
-            _keys.Add(Keys.Back, ImGuiKey.Backspace);
-            _keys.Add(Keys.Enter, ImGuiKey.Enter);
-            _keys.Add(Keys.Escape, ImGuiKey.Escape);
-            _keys.Add(Keys.A, ImGuiKey.A);
-            _keys.Add(Keys.C, ImGuiKey.C);
-            _keys.Add(Keys.V, ImGuiKey.V);
-            _keys.Add(Keys.X, ImGuiKey.X);
-            _keys.Add(Keys.Y, ImGuiKey.Y);
-            _keys.Add(Keys.Z, ImGuiKey.Z);
-
-            setClipboardFn = SetClipboard;
-            getClipboardFn = GetClipboard;
-
-            io.SetClipboardTextFn = Marshal.GetFunctionPointerForDelegate(setClipboardFn);
-            io.GetClipboardTextFn = Marshal.GetFunctionPointerForDelegate(getClipboardFn);
-        }
-
-        [FixedAddressValueType]
-        static SetClipboardDelegate setClipboardFn;
-
-        [FixedAddressValueType]
-        static GetClipboardDelegate getClipboardFn;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        delegate void SetClipboardDelegate(IntPtr data);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        delegate IntPtr GetClipboardDelegate();
-
-        void SetClipboard(IntPtr data) 
-        {
-        }
-
-        IntPtr GetClipboard() 
-        {
-            var io = ImGui.GetIO();
-            return io.ClipboardUserData;
-        }
-
-        void CreateDeviceObjects() 
-        {
-            // set up a commandlist
-            commandList = context.CommandList;
-
-            // compile de shader
-            imShader = new EffectInstance(effectSystem.LoadEffect("ImGuiShader").WaitForResult());
-            imShader.UpdateEffect(device);
-
-            var layout = new VertexDeclaration(
-                VertexElement.Position<Vector2>(),
-                VertexElement.TextureCoordinate<Vector2>(),
-                VertexElement.Color(PixelFormat.R8G8B8A8_UNorm)
-            );
-
-            imVertLayout = layout;
-
-            // de pipeline desc
-            var pipeline = new PipelineStateDescription() 
+            RasterizerState = new RasterizerStateDescription()
             {
-                BlendState = BlendStates.NonPremultiplied,
+                CullMode = CullMode.None,
+                DepthBias = 0,
+                FillMode = FillMode.Solid,
+                MultisampleAntiAliasLine = false,
+                ScissorTestEnable = true,
+                SlopeScaleDepthBias = 0,
+            },
 
-                RasterizerState = new RasterizerStateDescription() 
+            PrimitiveType = PrimitiveType.TriangleList,
+            InputElements = imVertLayout.CreateInputElements(),
+            DepthStencilState = DepthStencilStates.Default,
+
+            EffectBytecode = imShader.Effect.Bytecode,
+            RootSignature = imShader.RootSignature,
+
+            Output = new RenderOutputDescription(PixelFormat.R8G8B8A8_UNorm)
+        };
+
+        // finally set up the pipeline
+        var pipelineState = PipelineState.New(device, ref pipeline);
+        imPipeline = pipelineState;
+
+        var is32Bits = false;
+        var indexBuffer = Stride.Graphics.Buffer.Index.New(device, INITIAL_INDEX_BUFFER_SIZE * sizeof(ushort), GraphicsResourceUsage.Dynamic);
+        var indexBufferBinding = new IndexBufferBinding(indexBuffer, is32Bits, 0);
+        indexBinding = indexBufferBinding;
+
+        var vertexBuffer = Stride.Graphics.Buffer.Vertex.New(device, INITIAL_VERTEX_BUFFER_SIZE * imVertLayout.CalculateSize(), GraphicsResourceUsage.Dynamic);
+        var vertexBufferBinding = new VertexBufferBinding(vertexBuffer, layout, 0);
+        vertexBinding = vertexBufferBinding;
+    }
+
+    unsafe void CreateFontTexture()
+    {
+        _io.Fonts.Clear();
+        // font data, important
+        var text = _io.Fonts.AddFontDefault();
+        text.Scale = Scale;
+
+        byte* pixelData;
+        int width;
+        int height;
+        int bytesPerPixel;
+        _io.Fonts.GetTexDataAsRGBA32(&pixelData, &width, &height, &bytesPerPixel);
+
+        var newFontTexture = Texture.New2D(device, width, height, PixelFormat.R8G8B8A8_UNorm, TextureFlags.ShaderResource);
+        newFontTexture.SetData(commandList, new DataPointer(pixelData, (width * height) * bytesPerPixel));
+
+        fontTexture = newFontTexture;
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        var surfaceSize = Game.Window.ClientBounds;
+        _io.DisplaySize = new System.Numerics.Vector2(surfaceSize.Width, surfaceSize.Height);
+        //_io.FontGlobalScale = Scale;
+        _io.DeltaTime = (float)gameTime.TimePerFrame.TotalSeconds;
+
+        if (input.HasMouse == false || input.IsMousePositionLocked == false)
+        {
+            var mousePos = input.AbsoluteMousePosition;
+            _io.MousePos = new System.Numerics.Vector2(mousePos.X, mousePos.Y);
+
+            if (_io.WantTextInput)
+            {
+                input.TextInput.EnabledTextInput();
+            }
+            else
+            {
+                input.TextInput.DisableTextInput();
+            }
+
+            // handle input events
+            foreach (InputEvent ev in input.Events)
+            {
+                switch (ev)
                 {
-                    CullMode = CullMode.None,
-                    DepthBias = 0,
-                    FillMode = FillMode.Solid,
-                    MultisampleAntiAliasLine = false,
-                    ScissorTestEnable = true,
-                    SlopeScaleDepthBias = 0,
-                },
+                    case TextInputEvent tev:
+                        if (tev.Text == "\t") continue;
+                        _io.AddInputCharactersUTF8(tev.Text);
+                        break;
+                    case KeyEvent kev:
+                        if (_keys.TryGetValue(kev.Key, out var imGuiKey))
+                            _io.AddKeyEvent(imGuiKey, input.IsKeyDown(kev.Key));
+                        break;
+                    case MouseWheelEvent mw:
+                        _io.MouseWheel += mw.WheelDelta;
+                        break;
+                }
+            }
 
-                PrimitiveType = PrimitiveType.TriangleList,
-                InputElements = imVertLayout.CreateInputElements(),
-                DepthStencilState = DepthStencilStates.Default,
+            var mouseDown = _io.MouseDown;
+            mouseDown[0] = input.IsMouseButtonDown(MouseButton.Left);
+            mouseDown[1] = input.IsMouseButtonDown(MouseButton.Right);
+            mouseDown[2] = input.IsMouseButtonDown(MouseButton.Middle);
 
-                EffectBytecode = imShader.Effect.Bytecode,
-                RootSignature = imShader.RootSignature,
+            _io.KeyAlt = input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.LeftAlt);
+            _io.KeyShift = input.IsKeyDown(Keys.LeftShift) || input.IsKeyDown(Keys.RightShift);
+            _io.KeyCtrl = input.IsKeyDown(Keys.LeftCtrl) || input.IsKeyDown(Keys.RightCtrl);
+            _io.KeySuper = input.IsKeyDown(Keys.LeftWin) || input.IsKeyDown(Keys.RightWin);
+        }
+        ImGui.NewFrame();
+    }
 
-                Output = new RenderOutputDescription(PixelFormat.R8G8B8A8_UNorm)
-            };
+    public override bool BeginDraw() => true; // Tell stride to execute EndDraw
 
-            // finally set up the pipeline
-            var pipelineState = PipelineState.New(device, ref pipeline);
-            imPipeline = pipelineState;
+    public override void EndDraw()
+    {
+        ImGui.Render();
+        RenderDrawLists(ImGui.GetDrawData());
+    }
 
+    void CheckBuffers(ImDrawDataPtr drawData)
+    {
+        uint totalVBOSize = (uint)(drawData.TotalVtxCount * Unsafe.SizeOf<ImDrawVert>());
+        if (totalVBOSize > vertexBinding.Buffer.SizeInBytes)
+        {
+            var vertexBuffer = Stride.Graphics.Buffer.Vertex.New(device, (int)(totalVBOSize * 1.5f));
+            vertexBinding = new VertexBufferBinding(vertexBuffer, imVertLayout, 0);
+        }
+
+        uint totalIBOSize = (uint)(drawData.TotalIdxCount * sizeof(ushort));
+        if (totalIBOSize > indexBinding.Buffer.SizeInBytes)
+        {
             var is32Bits = false;
-            var indexBuffer = Stride.Graphics.Buffer.Index.New(device, INITIAL_INDEX_BUFFER_SIZE * sizeof(ushort), GraphicsResourceUsage.Dynamic);
-            var indexBufferBinding = new IndexBufferBinding(indexBuffer, is32Bits, 0);
-            indexBinding = indexBufferBinding;
-
-            var vertexBuffer = Stride.Graphics.Buffer.Vertex.New(device, INITIAL_VERTEX_BUFFER_SIZE * imVertLayout.CalculateSize(), GraphicsResourceUsage.Dynamic);
-            var vertexBufferBinding = new VertexBufferBinding(vertexBuffer, layout, 0);
-            vertexBinding = vertexBufferBinding;
+            var indexBuffer = Stride.Graphics.Buffer.Index.New(device, (int)(totalIBOSize * 1.5f));
+            indexBinding = new IndexBufferBinding(indexBuffer, is32Bits, 0);
         }
+    }
 
-        unsafe void CreateFontTexture() 
+    unsafe void UpdateBuffers(ImDrawDataPtr drawData)
+    {
+        // copy de dators
+        int vtxOffsetBytes = 0;
+        int idxOffsetBytes = 0;
+
+        for (int n = 0; n < drawData.CmdListsCount; n++)
         {
-            // font data, important
-            ImGui.GetIO().Fonts.AddFontDefault();
-
-            ImGuiIOPtr io = ImGui.GetIO();
-            io.Fonts.GetTexDataAsRGBA32(out byte* pixelData, out int width, out int height, out int bytesPerPixel);
-
-            var newFontTexture = Texture.New2D(device, width, height, PixelFormat.R8G8B8A8_UNorm, TextureFlags.ShaderResource);
-            newFontTexture.SetData(commandList, new DataPointer(pixelData, (width * height) * bytesPerPixel));
-
-            fontTexture = newFontTexture;
+            ImDrawListPtr cmdList = drawData.CmdLists[n];
+            vertexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.VtxBuffer.Data, cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>()), vtxOffsetBytes);
+            indexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.IdxBuffer.Data, cmdList.IdxBuffer.Size * sizeof(ushort)), idxOffsetBytes);
+            vtxOffsetBytes += cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>();
+            idxOffsetBytes += cmdList.IdxBuffer.Size * sizeof(ushort);
         }
+    }
 
-        public override void Update( GameTime gameTime )
+    void RenderDrawLists(ImDrawDataPtr drawData)
+    {
+        // view proj
+        var surfaceSize = Game.Window.ClientBounds;
+        var projMatrix = Matrix.OrthoRH(surfaceSize.Width, -surfaceSize.Height, -1, 1);
+
+        CheckBuffers(drawData); // potentially resize buffers first if needed
+        UpdateBuffers(drawData); // updeet em now
+
+        // set pipeline stuff
+        var is32Bits = false;
+        commandList.SetPipelineState(imPipeline);
+        commandList.SetVertexBuffer(0, vertexBinding.Buffer, 0, Unsafe.SizeOf<ImDrawVert>());
+        commandList.SetIndexBuffer(indexBinding.Buffer, 0, is32Bits);
+        imShader.Parameters.Set(ImGuiShaderKeys.tex, fontTexture);
+
+        int vtxOffset = 0;
+        int idxOffset = 0;
+        for (int n = 0; n < drawData.CmdListsCount; n++)
         {
-            ImGuiIOPtr io = ImGui.GetIO();
+            ImDrawListPtr cmdList = drawData.CmdLists[n];
 
-            var surfaceSize = input.Mouse.SurfaceSize;
-            io.DisplaySize = new System.Numerics.Vector2(surfaceSize.X, surfaceSize.Y);
-            io.DisplayFramebufferScale = new System.Numerics.Vector2(1.0f, 1.0f);
-            io.DeltaTime = (float)gameTime.TimePerFrame.TotalSeconds;
-            
-            if( input.HasMouse == false || input.IsMousePositionLocked == false )
+            for (int i = 0; i < cmdList.CmdBuffer.Size; i++)
             {
-                var mousePos = input.AbsoluteMousePosition;
-                io.MousePos = new System.Numerics.Vector2(mousePos.X, mousePos.Y);
+                ImDrawCmd cmd = cmdList.CmdBuffer[i];
 
-                if (io.WantTextInput) 
+                if (cmd.TextureId != IntPtr.Zero)
                 {
-                    input.TextInput.EnabledTextInput();
-                } 
-                else 
+                    // imShader.Parameters.Set(ImGuiShaderKeys.tex, fontTexture);
+                }
+                else
                 {
-                    input.TextInput.DisableTextInput();
+                    commandList.SetScissorRectangle(
+                        new Rectangle(
+                            (int)cmd.ClipRect.X,
+                            (int)cmd.ClipRect.Y,
+                            (int)(cmd.ClipRect.Z - cmd.ClipRect.X),
+                            (int)(cmd.ClipRect.W - cmd.ClipRect.Y)
+                        )
+                    );
+
+                    imShader.Parameters.Set(ImGuiShaderKeys.tex, fontTexture);
+                    imShader.Parameters.Set(ImGuiShaderKeys.proj, ref projMatrix);
+                    imShader.Apply(context);
+
+                    commandList.DrawIndexed((int)cmd.ElemCount, idxOffset, vtxOffset);
                 }
 
-                // handle input events
-                foreach (InputEvent ev in input.Events) 
-                {
-                    switch (ev) 
-                    {
-                        case TextInputEvent tev:
-                            if (tev.Text == "\t") continue;
-                            io.AddInputCharactersUTF8(tev.Text);
-                            break;
-                        case KeyEvent kev:
-                            if (_keys.TryGetValue(kev.Key, out var imGuiKey))
-                                io.AddKeyEvent(imGuiKey, input.IsKeyDown(kev.Key));
-                            break;
-                        case MouseWheelEvent mw:
-                            io.MouseWheel += mw.WheelDelta;
-                            break;
-                    }
-                }
-
-                var mouseDown = io.MouseDown;
-                mouseDown[0] = input.IsMouseButtonDown(MouseButton.Left);
-                mouseDown[1] = input.IsMouseButtonDown(MouseButton.Right);
-                mouseDown[2] = input.IsMouseButtonDown(MouseButton.Middle);
-
-                io.KeyAlt = input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.LeftAlt);
-                io.KeyShift = input.IsKeyDown(Keys.LeftShift) || input.IsKeyDown(Keys.RightShift);
-                io.KeyCtrl = input.IsKeyDown(Keys.LeftCtrl) || input.IsKeyDown(Keys.RightCtrl);
-                io.KeySuper = input.IsKeyDown(Keys.LeftWin) || input.IsKeyDown(Keys.RightWin);
-            }
-            ImGui.NewFrame();
-        }
-        
-        public override bool BeginDraw() => true; // Tell stride to execute EndDraw
-
-        public override void EndDraw()
-        {
-            ImGui.Render();
-            RenderDrawLists(ImGui.GetDrawData());
-        }
-
-        void CheckBuffers(ImDrawDataPtr drawData) 
-        {
-            uint totalVBOSize = (uint)(drawData.TotalVtxCount * Unsafe.SizeOf<ImDrawVert>());
-            if (totalVBOSize > vertexBinding.Buffer.SizeInBytes) 
-            {
-                var vertexBuffer = Stride.Graphics.Buffer.Vertex.New(device, (int)(totalVBOSize * 1.5f));
-                vertexBinding = new VertexBufferBinding(vertexBuffer, imVertLayout, 0);
+                idxOffset += (int)cmd.ElemCount;
             }
 
-            uint totalIBOSize = (uint)(drawData.TotalIdxCount * sizeof(ushort));
-            if (totalIBOSize > indexBinding.Buffer.SizeInBytes) 
-            {
-                var is32Bits = false;
-                var indexBuffer = Stride.Graphics.Buffer.Index.New(device, (int)(totalIBOSize * 1.5f));
-                indexBinding = new IndexBufferBinding(indexBuffer, is32Bits, 0);
-            }
-        }
-
-        void UpdateBuffers(ImDrawDataPtr drawData) 
-        {
-            // copy de dators
-            int vtxOffsetBytes = 0;
-            int idxOffsetBytes = 0;
-
-            for (int n = 0; n < drawData.CmdListsCount; n++) 
-            {
-                ImDrawListPtr cmdList = drawData.CmdListsRange[n];
-                vertexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.VtxBuffer.Data, cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>()), vtxOffsetBytes);
-                indexBinding.Buffer.SetData(commandList, new DataPointer(cmdList.IdxBuffer.Data, cmdList.IdxBuffer.Size * sizeof(ushort)), idxOffsetBytes);
-                vtxOffsetBytes += cmdList.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>();
-                idxOffsetBytes += cmdList.IdxBuffer.Size * sizeof(ushort);
-            }
-        }
-
-        void RenderDrawLists(ImDrawDataPtr drawData) 
-        {
-            // view proj
-            var surfaceSize = input.Mouse.SurfaceSize;
-            var projMatrix = Matrix.OrthoRH(surfaceSize.X, -surfaceSize.Y, -1, 1);
-
-            CheckBuffers(drawData); // potentially resize buffers first if needed
-            UpdateBuffers(drawData); // updeet em now
-
-            // set pipeline stuff
-            var is32Bits = false;
-            commandList.SetPipelineState(imPipeline);
-            commandList.SetVertexBuffer(0, vertexBinding.Buffer, 0, Unsafe.SizeOf<ImDrawVert>());
-            commandList.SetIndexBuffer(indexBinding.Buffer, 0, is32Bits);
-            imShader.Parameters.Set(ImGuiShaderKeys.tex, fontTexture);
-
-            int vtxOffset = 0;
-            int idxOffset = 0;
-            for (int n = 0; n < drawData.CmdListsCount; n++) 
-            {
-                ImDrawListPtr cmdList = drawData.CmdListsRange[n];
-
-                for (int i = 0; i < cmdList.CmdBuffer.Size; i++) 
-                {
-                    ImDrawCmdPtr cmd = cmdList.CmdBuffer[i];
-
-                    if (cmd.TextureId != IntPtr.Zero) 
-                    {
-                        // imShader.Parameters.Set(ImGuiShaderKeys.tex, fontTexture);
-                    }
-                    else 
-                    {
-                        commandList.SetScissorRectangle(
-                            new Rectangle(
-                                (int)cmd.ClipRect.X,
-                                (int)cmd.ClipRect.Y,
-                                (int)(cmd.ClipRect.Z - cmd.ClipRect.X),
-                                (int)(cmd.ClipRect.W - cmd.ClipRect.Y)
-                            )
-                        );
-
-                        imShader.Parameters.Set(ImGuiShaderKeys.tex, fontTexture);
-                        imShader.Parameters.Set(ImGuiShaderKeys.proj, ref projMatrix);
-                        imShader.Apply(context);
-
-                        commandList.DrawIndexed((int)cmd.ElemCount, idxOffset, vtxOffset);
-                    }
-
-                    idxOffset += (int)cmd.ElemCount;
-                }
-
-                vtxOffset += cmdList.VtxBuffer.Size;
-            }
+            vtxOffset += cmdList.VtxBuffer.Size;
         }
     }
 }
