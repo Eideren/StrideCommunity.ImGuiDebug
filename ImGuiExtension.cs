@@ -4,6 +4,7 @@ using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 
 using Hexa.NET.ImGui;
 using static Hexa.NET.ImGui.ImGui;
+using System.Runtime.CompilerServices;
 
 namespace StrideCommunity.ImGuiDebug;
 public class ImGuiExtension
@@ -39,7 +40,7 @@ public class ImGuiExtension
         return new DisposableImGui(true, DisposableTypes.Window);
     }
 
-    public static unsafe DisposableImGui Child(string cln = "", Vector2 size = default,
+    public static unsafe DisposableImGui Child([CallerLineNumber] int cln = 0, Vector2 size = default,
         ImGuiChildFlags childFlags = ImGuiChildFlags.None, ImGuiWindowFlags flags = ImGuiWindowFlags.None)
     {
         BeginChild(cln, size, childFlags, flags);
