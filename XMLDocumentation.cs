@@ -27,7 +27,7 @@ namespace StrideCommunity.ImGuiDebug
 
                 if( _documents.TryGetValue( assembly, out XmlDocument document ) == false )
                 {
-                    var filepath = assembly.CodeBase;
+                    var filepath = assembly.Location;
 
                     const string LOCAL_PREFIX = "file:///";
                     if( filepath.StartsWith( LOCAL_PREFIX ) )

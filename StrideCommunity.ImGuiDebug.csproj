@@ -6,11 +6,24 @@
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ImGui.NET" Version="1.75.0" />
-    <PackageReference Include="Stride.Core" Version="4.2.0.0" PrivateAssets="contentfiles;analyzers" />
-    <PackageReference Include="Stride.Engine" Version="4.2.0.0" PrivateAssets="contentfiles;analyzers" />
+	  <PackageReference Include="Hexa.NET.ImGui" Version="2.0.1" />
+    <PackageReference Include="Stride.Core" Version="4.2.0.2188" PrivateAssets="contentfiles;analyzers" />
+    <PackageReference Include="Stride.Engine" Version="4.2.0.2188" PrivateAssets="contentfiles;analyzers" />
 
-    <PackageReference Include="Stride.Core.Assets.CompilerApp" Version="4.2.0.0" PrivateAssets="contentfiles;analyzers" IncludeAssets="build;buildTransitive" />
+    <PackageReference Include="Stride.Core.Assets.CompilerApp" Version="4.2.0.2188" PrivateAssets="contentfiles; analyzers" IncludeAssets="build; buildtransitive" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Effects\ImGuiShader.sdsl.cs">
+      <DesignTime>True</DesignTime>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Effects\ImGuiShader.sdsl">
+      <LastGenOutput>ImGuiShader.sdsl.cs</LastGenOutput>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <PropertyGroup Condition="$(Configuration.Contains('Debug'))">
     <DebugType>full</DebugType>
