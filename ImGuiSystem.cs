@@ -234,7 +234,6 @@ public class ImGuiSystem : GameSystemBase
     {
         var surfaceSize = Game.Window.ClientBounds;
         _io.DisplaySize = new System.Numerics.Vector2(surfaceSize.Width, surfaceSize.Height);
-        //_io.FontGlobalScale = Scale;
         _io.DeltaTime = (float)gameTime.TimePerFrame.TotalSeconds;
 
         if (input.HasMouse == false || input.IsMousePositionLocked == false)
@@ -275,15 +274,13 @@ public class ImGuiSystem : GameSystemBase
             mouseDown[1] = input.IsMouseButtonDown(MouseButton.Right);
             mouseDown[2] = input.IsMouseButtonDown(MouseButton.Middle);
 
-            _io.KeyAlt = input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.LeftAlt);
+            _io.KeyAlt = input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.RightAlt);
             _io.KeyShift = input.IsKeyDown(Keys.LeftShift) || input.IsKeyDown(Keys.RightShift);
             _io.KeyCtrl = input.IsKeyDown(Keys.LeftCtrl) || input.IsKeyDown(Keys.RightCtrl);
             _io.KeySuper = input.IsKeyDown(Keys.LeftWin) || input.IsKeyDown(Keys.RightWin);
         }
         ImGui.NewFrame();
     }
-
-    public override bool BeginDraw() => true; // Tell stride to execute EndDraw
 
     public override void EndDraw()
     {
