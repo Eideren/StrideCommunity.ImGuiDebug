@@ -84,9 +84,9 @@ public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
 
 ```
 
--------
 
 ### Add ons
+-------
 
 #### ImNodes
 Add the Hexa.NET.ImNodes package
