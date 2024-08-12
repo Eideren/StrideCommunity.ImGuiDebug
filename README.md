@@ -8,7 +8,7 @@ Bare-bone implementation of ImGui and a couple of debug tools for Stride
 ### How to:
 * Add this repo as a submodule of your game's repo.
 * Add a project reference pointing to this project inside your game's .csproj.
-* Reference ImGui.NET's nuget package in your game's project, see below.
+* Reference Hexa.NET.ImGui's nuget package in your game's project, see below.
 ```xml
 <ProjectReference Include="..\StrideCommunity.ImGuiDebug\StrideCommunity.ImGuiDebug.csproj" />
 ```
@@ -32,7 +32,7 @@ Inspector.FindFreeInspector( Services ).Target = objectToInspect;
 Example interface implementation:
 ```cs
 using System.Numerics;
-using static ImGuiNET.ImGui;
+using static Hexa.NET.ImGui.ImGui;
 using static StrideCommunity.ImGuiDebug.ImGuiExtension;
 
 public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
@@ -84,12 +84,83 @@ public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
 
 ```
 
+### Add ons
+
+#### ImNodes
+Add the Hexa.NET.ImNodes package
+`dotnet add package Hexa.NET.ImNodes`
+
+In your Game class add the `ImNodes` context after the `ImGuiSystem` and add the context to `ImNodes`
+```cs
+protected override void BeginRun()
+{
+    base.BeginRun();
+    var imGuiSystem = new ImGuiSystem(Services, GraphicsDeviceManager);
+    ImNodesContextPtr = ImNodes.CreateContext();
+    ImNodes.SetImGuiContext(imGuiSystem.ImGuiContext);
+}
+```
+
+Create ImNodes widgets as needed
+```cs
+using Hexa.NET.ImNodes;
+using Stride.Core;
+using StrideCommunity.ImGuiDebug;
+using static Hexa.NET.ImGui.ImGui;
+using static Hexa.NET.ImNodes.ImNodes;
+
+namespace StrideVisualScripting.ImGuiWindows;
+public class HelloNodesWindow : BaseWindow
+{
+    private System.Numerics.Vector2 nodePos = new System.Numerics.Vector2(200, 100);
+    private System.Numerics.Vector3 Color = System.Numerics.Vector3.Zero;
+
+    private ImNodesEditorContextPtr _context;
+
+    public HelloNodesWindow(IServiceRegistry services) : base(services)
+    {
+        _context = EditorContextCreate();
+    }
+
+    protected override void OnDestroy() { }
+
+    protected override void OnDraw(bool collapsed)
+    {
+        Text("Hello World!");
+        BeginNodeEditor();
+        EditorContextSet(_context);
+        
+        BeginNode(1);
+        BeginOutputAttribute(1);
+        Text("Attribute Pin");
+        EndOutputAttribute();
+        EndNode();
+
+        BeginNode(2);
+        SetNodeGridSpacePos(2, nodePos);
+        BeginInputAttribute(2);
+        Text("Attribute Pin");
+        EndInputAttribute();
+
+        SetNextItemWidth(100f * Scale);
+        ColorPicker3("Test", ref Color);
+
+        EndNode();
+
+        Link(0, 1, 2);
+
+        EndNodeEditor();
+        nodePos = GetNodeEditorSpacePos(2);
+    }
+}
+```
+
 Credits
 -------
 [Profan's contribution](https://github.com/profan/dear-xenko)
 
 [jazzay's contribution](https://github.com/jazzay/Xenko.Extensions#xenkoimgui)
 
-[ImGui.NET](https://github.com/mellinoe/ImGui.NET)
+[Hexa.NET.ImGui](https://github.com/HexaEngine/Hexa.NET.ImGui)
 
 [Dear ImGui](https://github.com/ocornut/imgui)
