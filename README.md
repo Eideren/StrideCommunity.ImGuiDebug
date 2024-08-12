@@ -85,7 +85,7 @@ public class YourInterface : StrideCommunity.ImGuiDebug.BaseWindow
 ```
 
 
-### Add ons
+### Add-ons
 -------
 
 #### ImNodes
