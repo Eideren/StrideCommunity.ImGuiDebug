@@ -5,7 +5,7 @@ using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 using Hexa.NET.ImGui;
 using static Hexa.NET.ImGui.ImGui;
 using System.Runtime.CompilerServices;
-using System;
+using Stride.Graphics;
 
 namespace StrideCommunity.ImGuiDebug;
 public class ImGuiExtension
@@ -59,6 +59,11 @@ public class ImGuiExtension
             color.B = lightColorVector.Z;
         }
         return changed;
+    }
+
+    public static void Image(Texture texture)
+    {
+        ImGui.Image(texture.GetPointer(), new Vector2(texture.Width, texture.Height));
     }
 
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);

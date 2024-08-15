@@ -352,8 +352,10 @@ public class ImGuiSystem : GameSystemBase
                 if (cmd.TextureId != IntPtr.Zero)
                 {
                     // Convert the IntPtr to the correct texture resource
-                    var texture = (Texture)GCHandle.FromIntPtr(cmd.TextureId.Handle).Target;
-                    imShader.Parameters.Set(ImGuiShaderKeys.tex, texture);
+                    if (cmd.TextureId.Handle.TryGetTexture(out var texture))
+                    {
+                        imShader.Parameters.Set(ImGuiShaderKeys.tex, texture);
+                    }
                 }
                 else
                 {
