@@ -61,9 +61,24 @@ public class ImGuiExtension
         return changed;
     }
 
+    /// <summary>
+    /// Adds a texture to theImGui element with the Texture width and height
+    /// </summary>
+    /// <param name="texture"></param>
     public static void Image(Texture texture)
     {
         ImGui.Image(texture.GetPointer(), new Vector2(texture.Width, texture.Height));
+    }
+
+    /// <summary>
+    /// Adds a texture to theImGui element with a custom width and height
+    /// </summary>
+    /// <param name="texture"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    public static void Image(Texture texture, int width, int height)
+    {
+        ImGui.Image(texture.GetPointer(), new Vector2(width, height));
     }
 
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);
