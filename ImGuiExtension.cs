@@ -5,6 +5,7 @@ using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 using Hexa.NET.ImGui;
 using static Hexa.NET.ImGui.ImGui;
 using System.Runtime.CompilerServices;
+using System;
 
 namespace StrideCommunity.ImGuiDebug;
 public class ImGuiExtension
@@ -46,6 +47,20 @@ public class ImGuiExtension
         BeginChild(cln, size, childFlags, flags);
         return new DisposableImGui(true, DisposableTypes.Child);
     }
+
+    public static bool ColorPicker3(string label, ref Stride.Core.Mathematics.Color3 color)
+    {
+        var lightColorVector = new Vector3(color.R, color.G, color.B);
+        var changed = ImGui.ColorPicker3(label, ref lightColorVector);
+        if (changed)
+        {
+            color.R = lightColorVector.X;
+            color.G = lightColorVector.Y;
+            color.B = lightColorVector.Z;
+        }
+        return changed;
+    }
+
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);
     public static DisposableImGui Menu(string label, out bool open, bool enabled = true) => new DisposableImGui(open = BeginMenu(label, enabled), DisposableTypes.Menu);
 
