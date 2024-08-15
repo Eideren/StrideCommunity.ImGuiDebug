@@ -62,7 +62,7 @@ public class ImGuiExtension
     }
 
     /// <summary>
-    /// Adds a texture to theImGui element with the Texture width and height
+    /// Adds a texture to the ImGui element with the Texture width and height
     /// </summary>
     /// <param name="texture"></param>
     public static void Image(Texture texture)
@@ -71,7 +71,7 @@ public class ImGuiExtension
     }
 
     /// <summary>
-    /// Adds a texture to theImGui element with a custom width and height
+    /// Adds a texture to the ImGui element with a custom width and height
     /// </summary>
     /// <param name="texture"></param>
     /// <param name="width"></param>
@@ -79,6 +79,30 @@ public class ImGuiExtension
     public static void Image(Texture texture, int width, int height)
     {
         ImGui.Image(texture.GetPointer(), new Vector2(width, height));
+    }
+
+    /// <summary>
+    /// Adds a texture to the ImGui element button with the Texture width and height
+    /// </summary>
+    /// <param name="text"></param>
+    /// <param name="texture"></param>
+    /// <returns></returns>
+    public static bool ImageButton(string text, Texture texture)
+    {
+        return ImGui.ImageButton(text, texture.GetPointer(), new Vector2(texture.Width, texture.Height));
+    }
+
+    /// <summary>
+    /// Adds a texture to the ImGui element button with a custom width and height
+    /// </summary>
+    /// <param name="text"></param>
+    /// <param name="texture"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <returns></returns>
+    public static bool ImageButton(string text, Texture texture, int width, int height)
+    {
+        return ImGui.ImageButton(text, texture.GetPointer(), new Vector2(width, height));
     }
 
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);

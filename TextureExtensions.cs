@@ -19,6 +19,7 @@ public static class TextureExtensions
     public static IntPtr GetPointer(this Texture texture)
     {
         if(_pointerRegistry.TryGetValue(texture, out var pointer)) return pointer;
+
         _count++;
         _textureRegistry.Add(_count, texture);
         _pointerRegistry.Add(texture, _count);
