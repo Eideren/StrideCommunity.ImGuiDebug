@@ -6,10 +6,58 @@ using Hexa.NET.ImGui;
 using static Hexa.NET.ImGui.ImGui;
 using System.Runtime.CompilerServices;
 using Stride.Graphics;
+using System.Collections.Generic;
+using System;
 
 namespace StrideCommunity.ImGuiDebug;
 public class ImGuiExtension
 {
+    // Dictionary to hold textures
+    private static readonly Dictionary<nint, Texture> _textureRegistry = [];
+    private static readonly Dictionary<Texture, nint> _pointerRegistry = [];
+    private static nint _count;
+
+    /// <summary>
+    /// Gets a pointer to the Texture and adds it to the <see cref="_textureRegistry"/> if it was not previously added.
+    /// </summary>
+    /// <param name="texture"></param>
+    /// <returns></returns>
+    internal static nint GetTextureKey(Texture texture)
+    {
+        if (_pointerRegistry.TryGetValue(texture, out var pointer)) return pointer;
+
+        _count++;
+        _textureRegistry.Add(_count, texture);
+        _pointerRegistry.Add(texture, _count);
+
+        return _count;
+    }
+
+    /// <summary>
+    /// Attempts to convert a pointer to a texture if its in the <see cref="_textureRegistry"/>
+    /// </summary>
+    /// <param name="pointer"></param>
+    /// <param name="texture"></param>
+    /// <returns></returns>
+    internal static bool TryGetTexture(IntPtr pointer, out Texture texture)
+    {
+        if (_textureRegistry.TryGetValue(pointer, out texture))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Clears the dictionaries that contain the mappings between textures and their reference ids:
+    /// <see cref="_textureRegistry"/> <see cref="_pointerRegistry"/>
+    /// </summary>
+    internal static void ClearTextures()
+    {
+        _textureRegistry.Clear();
+        _pointerRegistry.Clear();
+    }
+
     public static DisposableImGui ID(string id)
     {
         PushID(id);
@@ -67,7 +115,7 @@ public class ImGuiExtension
     /// <param name="texture"></param>
     public static void Image(Texture texture)
     {
-        ImGui.Image(texture.GetPointer(), new Vector2(texture.Width, texture.Height));
+        ImGui.Image(GetTextureKey(texture), new Vector2(texture.Width, texture.Height));
     }
 
     /// <summary>
@@ -78,7 +126,7 @@ public class ImGuiExtension
     /// <param name="height"></param>
     public static void Image(Texture texture, int width, int height)
     {
-        ImGui.Image(texture.GetPointer(), new Vector2(width, height));
+        ImGui.Image(GetTextureKey(texture), new Vector2(width, height));
     }
 
     /// <summary>
@@ -89,7 +137,7 @@ public class ImGuiExtension
     /// <returns></returns>
     public static bool ImageButton(string text, Texture texture)
     {
-        return ImGui.ImageButton(text, texture.GetPointer(), new Vector2(texture.Width, texture.Height));
+        return ImGui.ImageButton(text, GetTextureKey(texture), new Vector2(texture.Width, texture.Height));
     }
 
     /// <summary>
@@ -102,7 +150,7 @@ public class ImGuiExtension
     /// <returns></returns>
     public static bool ImageButton(string text, Texture texture, int width, int height)
     {
-        return ImGui.ImageButton(text, texture.GetPointer(), new Vector2(width, height));
+        return ImGui.ImageButton(text, GetTextureKey(texture), new Vector2(width, height));
     }
 
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);

@@ -286,6 +286,7 @@ public class ImGuiSystem : GameSystemBase
     {
         ImGui.Render();
         RenderDrawLists(ImGui.GetDrawData());
+        ImGuiExtension.ClearTextures();
     }
 
     void CheckBuffers(ImDrawDataPtr drawData)
@@ -352,7 +353,7 @@ public class ImGuiSystem : GameSystemBase
                 if (cmd.TextureId != IntPtr.Zero)
                 {
                     // Convert the IntPtr to the correct texture resource
-                    if (cmd.TextureId.Handle.TryGetTexture(out var texture))
+                    if (ImGuiExtension.TryGetTexture(cmd.TextureId.Handle, out var texture))
                     {
                         imShader.Parameters.Set(ImGuiShaderKeys.tex, texture);
                     }
