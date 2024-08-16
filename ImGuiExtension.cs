@@ -13,9 +13,8 @@ namespace StrideCommunity.ImGuiDebug;
 public class ImGuiExtension
 {
     // Dictionary to hold textures
-    private static readonly Dictionary<nint, Texture> _textureRegistry = [];
+    private static readonly List<Texture> _textureRegistry = [];
     private static readonly Dictionary<Texture, nint> _pointerRegistry = [];
-    private static nint _count;
 
     /// <summary>
     /// Gets a pointer to the Texture and adds it to the <see cref="_textureRegistry"/> if it was not previously added.
@@ -26,11 +25,11 @@ public class ImGuiExtension
     {
         if (_pointerRegistry.TryGetValue(texture, out var key)) return key;
 
-        _count++;
-        _textureRegistry.Add(_count, texture);
-        _pointerRegistry.Add(texture, _count);
+        _textureRegistry.Add(texture);
+        nint id = _textureRegistry.Count;
+        _pointerRegistry.Add(texture, id);
 
-        return _count;
+        return id;
     }
 
     /// <summary>
@@ -39,12 +38,15 @@ public class ImGuiExtension
     /// <param name="key"></param>
     /// <param name="texture"></param>
     /// <returns></returns>
-    internal static bool TryGetTexture(IntPtr key, out Texture texture)
+    internal static bool TryGetTexture(nint key, out Texture texture)
     {
-        if (_textureRegistry.TryGetValue(key, out texture))
+        int index = (int)key - 1;
+        if (index >= 0 && index < _textureRegistry.Count)
         {
+            texture = _textureRegistry[index];
             return true;
         }
+        texture = null;
         return false;
     }
 
