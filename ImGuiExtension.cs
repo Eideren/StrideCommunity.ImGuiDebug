@@ -24,7 +24,7 @@ public class ImGuiExtension
     /// <returns></returns>
     internal static nint GetTextureKey(Texture texture)
     {
-        if (_pointerRegistry.TryGetValue(texture, out var pointer)) return pointer;
+        if (_pointerRegistry.TryGetValue(texture, out var key)) return key;
 
         _count++;
         _textureRegistry.Add(_count, texture);
@@ -36,12 +36,12 @@ public class ImGuiExtension
     /// <summary>
     /// Attempts to convert a pointer to a texture if its in the <see cref="_textureRegistry"/>
     /// </summary>
-    /// <param name="pointer"></param>
+    /// <param name="key"></param>
     /// <param name="texture"></param>
     /// <returns></returns>
-    internal static bool TryGetTexture(IntPtr pointer, out Texture texture)
+    internal static bool TryGetTexture(IntPtr key, out Texture texture)
     {
-        if (_textureRegistry.TryGetValue(pointer, out texture))
+        if (_textureRegistry.TryGetValue(key, out texture))
         {
             return true;
         }
@@ -143,14 +143,14 @@ public class ImGuiExtension
     /// <summary>
     /// Adds a texture to the ImGui element button with a custom width and height
     /// </summary>
-    /// <param name="text"></param>
+    /// <param name="strid"></param>
     /// <param name="texture"></param>
     /// <param name="width"></param>
     /// <param name="height"></param>
     /// <returns></returns>
-    public static bool ImageButton(string text, Texture texture, int width, int height)
+    public static bool ImageButton(string strid, Texture texture, int width, int height)
     {
-        return ImGui.ImageButton(text, GetTextureKey(texture), new Vector2(width, height));
+        return ImGui.ImageButton(strid, GetTextureKey(texture), new Vector2(width, height));
     }
 
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);
