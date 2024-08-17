@@ -5,10 +5,56 @@ using ArgumentOutOfRangeException = System.ArgumentOutOfRangeException;
 using Hexa.NET.ImGui;
 using static Hexa.NET.ImGui.ImGui;
 using System.Runtime.CompilerServices;
+using Stride.Graphics;
+using System.Collections.Generic;
+using System;
 
 namespace StrideCommunity.ImGuiDebug;
 public class ImGuiExtension
 {
+    // Dictionary to hold textures
+    private static readonly List<Texture> _textureRegistry = [];
+
+    /// <summary>
+    /// Gets a pointer to the Texture and adds it to the <see cref="_textureRegistry"/> if it was not previously added.
+    /// </summary>
+    /// <param name="texture"></param>
+    /// <returns></returns>
+    internal static nint GetTextureKey(Texture texture)
+    {
+        _textureRegistry.Add(texture);
+        nint id = _textureRegistry.Count;
+
+        return id;
+    }
+
+    /// <summary>
+    /// Attempts to convert a pointer to a texture if its in the <see cref="_textureRegistry"/>
+    /// </summary>
+    /// <param name="key"></param>
+    /// <param name="texture"></param>
+    /// <returns></returns>
+    internal static bool TryGetTexture(nint key, out Texture texture)
+    {
+        int index = (int)key - 1;
+        if (index >= 0 && index < _textureRegistry.Count)
+        {
+            texture = _textureRegistry[index];
+            return true;
+        }
+        texture = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears the dictionaries that contain the mappings between textures and their reference ids:
+    /// <see cref="_textureRegistry"/> <see cref="_pointerRegistry"/>
+    /// </summary>
+    internal static void ClearTextures()
+    {
+        _textureRegistry.Clear();
+    }
+
     public static DisposableImGui ID(string id)
     {
         PushID(id);
@@ -46,6 +92,64 @@ public class ImGuiExtension
         BeginChild(cln, size, childFlags, flags);
         return new DisposableImGui(true, DisposableTypes.Child);
     }
+
+    public static bool ColorPicker3(string label, ref Stride.Core.Mathematics.Color3 color)
+    {
+        var lightColorVector = new Vector3(color.R, color.G, color.B);
+        var changed = ImGui.ColorPicker3(label, ref lightColorVector);
+        if (changed)
+        {
+            color.R = lightColorVector.X;
+            color.G = lightColorVector.Y;
+            color.B = lightColorVector.Z;
+        }
+        return changed;
+    }
+
+    /// <summary>
+    /// Adds a texture to the ImGui element with the Texture width and height
+    /// </summary>
+    /// <param name="texture"></param>
+    public static void Image(Texture texture)
+    {
+        ImGui.Image(GetTextureKey(texture), new Vector2(texture.Width, texture.Height));
+    }
+
+    /// <summary>
+    /// Adds a texture to the ImGui element with a custom width and height
+    /// </summary>
+    /// <param name="texture"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    public static void Image(Texture texture, int width, int height)
+    {
+        ImGui.Image(GetTextureKey(texture), new Vector2(width, height));
+    }
+
+    /// <summary>
+    /// Adds a texture to the ImGui element button with the Texture width and height
+    /// </summary>
+    /// <param name="text"></param>
+    /// <param name="texture"></param>
+    /// <returns></returns>
+    public static bool ImageButton(string text, Texture texture)
+    {
+        return ImGui.ImageButton(text, GetTextureKey(texture), new Vector2(texture.Width, texture.Height));
+    }
+
+    /// <summary>
+    /// Adds a texture to the ImGui element button with a custom width and height
+    /// </summary>
+    /// <param name="strid"></param>
+    /// <param name="texture"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <returns></returns>
+    public static bool ImageButton(string strid, Texture texture, int width, int height)
+    {
+        return ImGui.ImageButton(strid, GetTextureKey(texture), new Vector2(width, height));
+    }
+
     public static DisposableImGui MenuBar(out bool open) => new DisposableImGui(open = BeginMenuBar(), DisposableTypes.MenuBar);
     public static DisposableImGui Menu(string label, out bool open, bool enabled = true) => new DisposableImGui(open = BeginMenu(label, enabled), DisposableTypes.Menu);
 
