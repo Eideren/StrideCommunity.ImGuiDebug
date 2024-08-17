@@ -14,7 +14,6 @@ public class ImGuiExtension
 {
     // Dictionary to hold textures
     private static readonly List<Texture> _textureRegistry = [];
-    private static readonly Dictionary<Texture, nint> _pointerRegistry = [];
 
     /// <summary>
     /// Gets a pointer to the Texture and adds it to the <see cref="_textureRegistry"/> if it was not previously added.
@@ -23,11 +22,8 @@ public class ImGuiExtension
     /// <returns></returns>
     internal static nint GetTextureKey(Texture texture)
     {
-        if (_pointerRegistry.TryGetValue(texture, out var key)) return key;
-
         _textureRegistry.Add(texture);
         nint id = _textureRegistry.Count;
-        _pointerRegistry.Add(texture, id);
 
         return id;
     }
@@ -57,7 +53,6 @@ public class ImGuiExtension
     internal static void ClearTextures()
     {
         _textureRegistry.Clear();
-        _pointerRegistry.Clear();
     }
 
     public static DisposableImGui ID(string id)
